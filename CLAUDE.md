@@ -5,8 +5,8 @@ This project uses a local markdown-based task board in `tasks/`.
 ### Running the Board
 
 ```bash
-uv run tasks/server.py
-# → http://localhost:8080
+uv run tasks/server.py [--port PORT]
+# → http://localhost:8080 (default)
 ```
 
 ### Structure
