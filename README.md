@@ -19,10 +19,13 @@ Cloud project management tools are built for teams coordinating across time zone
 ## Quick start
 
 ```bash
-uvx mdboard
+uvx mdboard init    # scaffold tasks/ directory and config
+uvx mdboard         # start the board
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
+
+No install required -- `uvx` runs directly from PyPI. You just need [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ## How it works
 
@@ -88,7 +91,9 @@ EOF
 
 ## AI agent workflow
 
-The board is designed to be operated by AI coding agents. A typical setup:
+The board is designed to be operated by AI coding agents. `mdboard init` installs a Claude Code skill at `.claude/skills/mdboard/SKILL.md` that teaches agents how to operate the board. Invoke it with `/mdboard` in Claude Code, or let the agent discover it automatically.
+
+A typical agent workflow:
 
 1. Agent scans `tasks/todo/` for tasks assigned to it
 2. Moves the task file to `tasks/in-progress/`
@@ -130,6 +135,14 @@ JSON API for scripting:
 | `DELETE` | `/api/task/{col}/{file}` | Delete a task |
 | `PATCH` | `/api/task/move` | Move between columns |
 | `GET/POST/DELETE` | `/api/comments/{id}` | Task comments |
+
+## Development
+
+```bash
+git clone https://github.com/yourusername/mdboard.git
+cd mdboard
+uv run mdboard
+```
 
 ## Requirements
 
