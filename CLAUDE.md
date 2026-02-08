@@ -5,9 +5,10 @@ This project uses a local markdown-based task board in `tasks/`. It consists of 
 ### Running the Board
 
 ```bash
-uv run server.py [--port PORT] [--tasks-dir DIR]
+uvx mdboard [--port PORT] [--tasks-dir DIR]
 # → http://localhost:8080 (default)
 # → tasks dir defaults to ./tasks
+# dev: uv run mdboard
 ```
 
 ### Structure

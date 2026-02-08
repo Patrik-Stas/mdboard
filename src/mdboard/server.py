@@ -1,14 +1,9 @@
-#!/usr/bin/env python3
 """Local markdown-based project management board — HTTP server.
 
 Zero dependencies beyond the Python standard library.
 Reads/writes tasks/ directory: directories = columns, .md files = tasks.
-
-Usage:
-    python server.py [--port PORT] [--tasks-dir DIR]
 """
 
-import argparse
 import http.server
 import json
 import os
@@ -16,6 +11,7 @@ import re
 import shutil
 import socketserver
 from datetime import date, datetime
+from importlib.resources import files
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -361,7 +357,7 @@ class Board:
 
 class BoardHandler(http.server.BaseHTTPRequestHandler):
     board: Board
-    html_path: Path
+    html_path: object  # Path or importlib.resources Traversable
 
     def log_message(self, fmt, *args):
         # Quieter logging
@@ -484,22 +480,12 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    parser = argparse.ArgumentParser(description="Task board server")
-    parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
-    parser.add_argument("--tasks-dir", default="tasks", help="Tasks root directory")
-    args = parser.parse_args()
+def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
+    """Start the HTTP server."""
+    tasks_path = Path(tasks_dir).resolve()
+    html_path = files("mdboard").joinpath("_assets", "index.html")
 
-    tasks_dir = Path(args.tasks_dir).resolve()
-    server_dir = Path(__file__).resolve().parent
-
-    board = Board(str(tasks_dir))
-
-    # Locate index.html next to server.py
-    html_path = server_dir / "index.html"
-    if not html_path.exists():
-        print(f"ERROR: index.html not found at {html_path}")
-        raise SystemExit(1)
+    board = Board(str(tasks_path))
 
     BoardHandler.board = board
     BoardHandler.html_path = html_path
@@ -507,14 +493,14 @@ def main():
     # Allow port reuse
     socketserver.TCPServer.allow_reuse_address = True
 
-    with socketserver.TCPServer(("", args.port), BoardHandler) as httpd:
+    with socketserver.TCPServer(("", port), BoardHandler) as httpd:
         col_count = len(board.column_names())
         task_count = board.task_count()
         print(f"")
-        print(f"  Task Board Server")
+        print(f"  mdboard")
         print(f"  ─────────────────────────────────")
-        print(f"  URL:      http://localhost:{args.port}")
-        print(f"  Tasks:    {tasks_dir}")
+        print(f"  URL:      http://localhost:{port}")
+        print(f"  Tasks:    {tasks_path}")
         print(f"  Columns:  {col_count}    Tasks: {task_count}")
         print(f"  ─────────────────────────────────")
         print(f"")
@@ -525,4 +511,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="mdboard server")
+    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--tasks-dir", default="tasks")
+    args = parser.parse_args()
+    run_server(port=args.port, tasks_dir=args.tasks_dir)

@@ -1,0 +1,20 @@
+columns:
+  - name: backlog
+    label: "📋 Backlog"
+    color: "#6b7280"
+  - name: todo
+    label: "📌 To Do"
+    color: "#3b82f6"
+  - name: in-progress
+    label: "🔨 In Progress"
+    color: "#f59e0b"
+  - name: review
+    label: "👀 Review"
+    color: "#8b5cf6"
+  - name: done
+    label: "✅ Done"
+    color: "#10b981"
+
+settings:
+  auto_increment_id: true
+  default_column: backlog

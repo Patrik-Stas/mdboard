@@ -19,9 +19,6 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# Project data
-tasks/
-
 # Environment
 .env
 .env.*

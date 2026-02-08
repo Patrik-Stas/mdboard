@@ -8,7 +8,7 @@ Built for solo developers and AI-assisted workflows. No database, no SaaS, no de
 
 Cloud project management tools are built for teams coordinating across time zones on work that stretches over days and weeks. But when it's you and your AI agents on one machine, shipping tasks that take minutes to hours, a cloud subscription is overhead. You're paying for collaboration features you don't use, managing another account per project, and context-switching to a browser tab that's disconnected from the code you're actually working on.
 
-**amtheboard puts the board in the repo.** Tasks are markdown files checked into git. No subscription, no sync issues, no per-project setup. Clone the repo and the board is already there.
+**mdboard puts the board in the repo.** Tasks are markdown files checked into git. No subscription, no sync issues, no per-project setup. Clone the repo and the board is already there.
 
 **The board travels with the branch.** Your `main` branch has a roadmap. Your `experiment/new-parser` branch has its own set of tasks that don't exist on main. When you merge, the task history merges too. When you abandon the branch, the tasks disappear with it. The `tasks/` directory becomes a built-in audit trail of what was planned, what was done, and what was left behind -- scoped to the exact line of work.
 
@@ -19,7 +19,7 @@ Cloud project management tools are built for teams coordinating across time zone
 ## Quick start
 
 ```bash
-uv run server.py
+uvx mdboard
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
@@ -114,8 +114,8 @@ Everything is committed alongside the code changes. The git log tells you what w
 ## Server options
 
 ```bash
-uv run server.py --port 3000           # custom port
-uv run server.py --tasks-dir ./other   # different tasks directory
+mdboard --port 3000           # custom port
+mdboard --tasks-dir ./other   # different tasks directory
 ```
 
 ## API
