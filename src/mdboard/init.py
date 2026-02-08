@@ -28,48 +28,31 @@ settings:
 COLUMNS = ["backlog", "todo", "in-progress", "review", "done"]
 
 DEFAULT_SKILL = """\
-## Task Management
+---
+name: mdboard
+description: Operate the markdown task board. Use at session start to scan for assigned tasks, and when creating or managing tasks in tasks/.
+---
 
-This project uses a local markdown-based task board in `tasks/`.
+## Task Board
 
-### Running the Board
-
-```bash
-uvx mdboard [--port PORT] [--tasks-dir DIR]
-# → http://localhost:8080 (default)
-```
+This project uses mdboard — a markdown-based task board in `tasks/`. Run `uvx mdboard` to view the web UI.
 
 ### Structure
-- `tasks/{column}/{id:03d}-{slug}.md` — each task is a markdown file (e.g. `001-setup-ci.md`)
-- Columns: backlog → todo → in-progress → review → done (defined in `tasks/config.yaml`)
-- Files have YAML frontmatter with: id, title, assignee, tags, created, due, branch, completed
-- Comments stored in `tasks/comments/{task_id}/` as timestamped markdown files
-- Config in `tasks/config.yaml` (columns, colors, `auto_increment_id`, `default_column`)
+- `tasks/{column}/{id:03d}-{slug}.md` — each task is a markdown file
+- Columns: `backlog/` → `todo/` → `in-progress/` → `review/` → `done/`
+- Config in `tasks/config.yaml`
 
-### Your Workflow
-1. At session start, scan `tasks/backlog/`, `tasks/todo/`, and `tasks/in-progress/` for tasks where `assignee: claude`
-2. Before starting a task, move it: `mv tasks/todo/XXX.md tasks/in-progress/`
-3. Work on the task, checking off acceptance criteria in the file as you go
-4. Append notes under `## Notes` with what you did and any decisions made
-5. When complete, move to done: `mv tasks/in-progress/XXX.md tasks/done/`
-6. Add `completed: YYYY-MM-DD` to the frontmatter
-7. If you discover bugs or necessary refactors, create new task files in `tasks/backlog/`
-8. Commit task file changes alongside your code changes
-9. If a task has `branch: X`, only pick it up when on that branch
-
-### Creating Tasks
-Filename format: `{id:03d}-{slug}.md` (zero-padded 3 digits). IDs auto-increment across all columns.
-
-Use this template:
+### Task file format
 ```
 ---
-id: {next_id}
+id: {number}
 title: {title}
 assignee: claude
-tags: [{relevant, tags}]
-created: {today}
-due: {optional, YYYY-MM-DD}
-branch: {optional, only if scoped to a branch}
+tags: [{tags}]
+created: YYYY-MM-DD
+due: YYYY-MM-DD          # optional
+branch: {branch-name}    # optional, only pick up when on this branch
+completed: YYYY-MM-DD    # set when moving to done
 ---
 
 ## Description
@@ -79,7 +62,20 @@ branch: {optional, only if scoped to a branch}
 - [ ] {criterion}
 
 ## Notes
+{append decisions and progress here}
 ```
+
+Filenames are zero-padded: `001-slug.md`, `002-slug.md`. IDs auto-increment across all columns.
+
+### Workflow
+1. Scan `tasks/backlog/`, `tasks/todo/`, and `tasks/in-progress/` for tasks where `assignee: claude`
+2. If a task has `branch: X`, only pick it up when on that branch
+3. Move task to in-progress: `mv tasks/todo/XXX.md tasks/in-progress/`
+4. Work on it — check off `- [ ]` items in Acceptance Criteria as you go
+5. Append notes under `## Notes` with what you did and decisions made
+6. When complete: add `completed: YYYY-MM-DD` to frontmatter, then `mv tasks/in-progress/XXX.md tasks/done/`
+7. If you discover bugs or new work, create task files in `tasks/backlog/`
+8. Commit task file changes alongside code changes
 """
 
 
