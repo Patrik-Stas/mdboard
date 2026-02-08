@@ -483,6 +483,12 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
     """Start the HTTP server."""
     tasks_path = Path(tasks_dir).resolve()
+
+    # Auto-scaffold on first run
+    if not tasks_path.exists():
+        from mdboard.init import run_init
+        run_init()
+
     html_path = files("mdboard").joinpath("_assets", "index.html")
 
     board = Board(str(tasks_path))
