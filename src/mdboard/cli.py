@@ -26,5 +26,5 @@ def main(argv: list[str] | None = None) -> None:
         from mdboard.server import run_server
         run_server(port=args.port, tasks_dir=args.tasks_dir)
     elif args.command == "init":
-        print("mdboard init: not yet implemented")
-        sys.exit(1)
+        from mdboard.init import run_init
+        run_init()

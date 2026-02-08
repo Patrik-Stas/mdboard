@@ -25,7 +25,7 @@ uvx mdboard init                # scaffold tasks/ directory in current project
 - [x] `server.py` resolves `index.html` from package data, not `__file__` parent
 - [x] `uv build` produces a working wheel
 - [x] `uvx mdboard` starts the server and serves the board
-- [ ] `uvx mdboard init` scaffolds a `tasks/` directory with default `config.yaml`
+- [x] `uvx mdboard init` scaffolds a `tasks/` directory with default `config.yaml`
 
 ## Notes
 Completed packaging restructure alongside task 004 (rename). Used `src/` layout with hatchling
