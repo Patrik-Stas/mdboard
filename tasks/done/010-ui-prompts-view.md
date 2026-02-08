@@ -4,8 +4,8 @@ title: UI prompts view with revision history
 assignee: claude
 tags: [frontend, prompts, ui]
 created: 2026-02-08
+completed: 2026-02-09
 ---
-
 ## Description
 Build the prompts tab UI. Shows a list of prompts ordered by date. Clicking a prompt opens a detail view with the current content rendered as markdown, an edit mode, and a revision history panel showing all past revisions with timestamps and diffs or change summaries.
 

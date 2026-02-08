@@ -4,8 +4,8 @@ title: UI reports view with revision history
 assignee: claude
 tags: [frontend, reports, ui]
 created: 2026-02-08
+completed: 2026-02-09
 ---
-
 ## Description
 Build the reports tab UI. Same mechanics as prompts view — list of reports ordered by date, detail view with markdown rendering, edit mode, and revision history. Reports may be used to generate new tasks on the board.
 

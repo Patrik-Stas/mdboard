@@ -94,6 +94,15 @@ def run_init() -> None:
             col_dir.mkdir(parents=True, exist_ok=True)
             created.append(f"tasks/{col}/")
 
+    # Create prompts/ and reports/ directories
+    for resource_dir in ("prompts", "reports"):
+        rdir = root / resource_dir
+        if rdir.exists():
+            skipped.append(f"{resource_dir}/")
+        else:
+            rdir.mkdir(parents=True, exist_ok=True)
+            created.append(f"{resource_dir}/")
+
     # Create tasks/config.yaml
     config_path = root / "tasks" / "config.yaml"
     if config_path.exists():

@@ -4,8 +4,8 @@ title: Design file format for prompts and reports with revision tracking
 assignee: claude
 tags: [design, prompts, reports]
 created: 2026-02-08
+completed: 2026-02-09
 ---
-
 ## Description
 Define the directory structure and file format for two new resource types: prompts and reports. Both are markdown files with revision tracking — each revision stored as a separate file so the audit trail doesn't require digging through git history.
 

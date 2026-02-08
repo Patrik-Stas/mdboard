@@ -4,8 +4,8 @@ title: Backend API for prompts and reports
 assignee: claude
 tags: [backend, prompts, reports, api]
 created: 2026-02-08
+completed: 2026-02-09
 ---
-
 ## Description
 Add API endpoints for prompts and reports in server.py. Both resource types share the same mechanics: CRUD for the resource itself, plus revision management (create revision, list revisions, view specific revision).
 

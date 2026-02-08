@@ -64,6 +64,28 @@ html, body {
   align-items: center;
   gap: 8px;
 }
+.header-tabs {
+  display: flex;
+  gap: 2px;
+}
+.header-tab {
+  padding: 5px 14px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.header-tab:hover {
+  color: var(--text-secondary);
+}
+.header-tab.active {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-overlay);
+}
 .kbd {
   display: inline-flex;
   align-items: center;
@@ -739,6 +761,156 @@ html, body {
 }
 .comment-author-input:focus { border-color: var(--text-accent); }
 
+/* ── RESOURCE VIEWS (prompts/reports) ── */
+.resource-view {
+  display: none;
+  flex-direction: column;
+  height: calc(100vh - 52px);
+  overflow: hidden;
+}
+.resource-view.active {
+  display: flex;
+}
+.resource-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+.resource-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.resource-toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.resource-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-overlay);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+}
+.resource-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.resource-list::-webkit-scrollbar { width: 6px; }
+.resource-list::-webkit-scrollbar-track { background: transparent; }
+.resource-list::-webkit-scrollbar-thumb { background: var(--border); }
+.resource-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.resource-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-overlay);
+}
+.resource-card-left {
+  min-width: 0;
+  flex: 1;
+}
+.resource-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resource-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.resource-card-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.resource-card-rev {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-overlay);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+}
+
+/* ── RESOURCE MODAL ── */
+.resource-modal-revisions {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.revisions-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.revisions-header::before {
+  content: '\25B6';
+  font-size: 8px;
+  transition: transform 0.15s;
+}
+.revisions-header.expanded::before {
+  transform: rotate(90deg);
+}
+.revisions-list {
+  display: none;
+}
+.revisions-list.expanded {
+  display: block;
+}
+.revision-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.15s;
+}
+.revision-item:hover {
+  background: var(--bg-overlay);
+}
+.revision-item.active {
+  border-color: var(--text-accent);
+  background: rgba(88, 166, 255, 0.05);
+}
+.revision-label {
+  font-weight: 500;
+}
+.revision-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── EMPTY STATE ── */
 .empty-state {
   color: var(--text-muted);
@@ -778,6 +950,13 @@ html, body {
   .filter-bar {
     flex-wrap: wrap;
   }
+  .header-tabs {
+    gap: 0;
+  }
+  .header-tab {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
 }
 </style>
 </head>
@@ -785,27 +964,55 @@ html, body {
 
 <div class="header">
   <div class="header-left">
-    <div class="logo">taskboard<span>/</span></div>
+    <div class="logo">mdboard<span>/</span></div>
+    <div class="header-tabs">
+      <button class="header-tab active" data-view="board" onclick="switchView('board')">Board</button>
+      <button class="header-tab" data-view="prompts" onclick="switchView('prompts')">Prompts</button>
+      <button class="header-tab" data-view="reports" onclick="switchView('reports')">Reports</button>
+    </div>
   </div>
   <div class="header-right">
-    <span class="kbd">N</span> <span style="color:var(--text-muted);font-size:11px;">new task</span>
+    <span class="kbd">N</span> <span style="color:var(--text-muted);font-size:11px;">new</span>
     <span class="kbd" style="margin-left:8px;">Esc</span> <span style="color:var(--text-muted);font-size:11px;">close</span>
   </div>
 </div>
 
-<div class="filter-bar">
-  <div class="filter-group">
-    <label>assignee</label>
-    <input type="text" id="filter-assignee" placeholder="filter..." style="width:100px;">
+<div id="board-view">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>assignee</label>
+      <input type="text" id="filter-assignee" placeholder="filter..." style="width:100px;">
+    </div>
+    <div class="filter-group">
+      <label>tag</label>
+      <input type="text" id="filter-tag" placeholder="filter..." style="width:100px;">
+    </div>
+    <button class="filter-clear" onclick="clearFilters()">clear</button>
   </div>
-  <div class="filter-group">
-    <label>tag</label>
-    <input type="text" id="filter-tag" placeholder="filter..." style="width:100px;">
-  </div>
-  <button class="filter-clear" onclick="clearFilters()">clear</button>
+  <div class="board-container" id="board"></div>
 </div>
 
-<div class="board-container" id="board"></div>
+<div id="prompts-view" class="resource-view">
+  <div class="resource-toolbar">
+    <div class="resource-toolbar-left">
+      <span class="resource-toolbar-title">Prompts</span>
+      <span class="resource-count" id="prompts-count">0</span>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateResource('prompts')">+ new prompt</button>
+  </div>
+  <div class="resource-list" id="prompts-list"></div>
+</div>
+
+<div id="reports-view" class="resource-view">
+  <div class="resource-toolbar">
+    <div class="resource-toolbar-left">
+      <span class="resource-toolbar-title">Reports</span>
+      <span class="resource-count" id="reports-count">0</span>
+    </div>
+    <button class="btn btn-primary" onclick="openCreateResource('reports')">+ new report</button>
+  </div>
+  <div class="resource-list" id="reports-list"></div>
+</div>
 
 <!-- Modal -->
 <div class="modal-backdrop" id="modal-backdrop">
@@ -866,12 +1073,67 @@ html, body {
   </div>
 </div>
 
+<!-- Resource Create Modal -->
+<div class="create-backdrop" id="resource-create-backdrop">
+  <div class="create-modal" onclick="event.stopPropagation()">
+    <div class="create-modal-header">
+      <span id="resource-create-title">New Prompt</span>
+      <button class="modal-close" onclick="closeResourceCreate()">Esc</button>
+    </div>
+    <div class="create-modal-body">
+      <div class="create-field">
+        <label>Title</label>
+        <input type="text" id="resource-create-name" placeholder="title">
+      </div>
+      <div class="create-field">
+        <label>Tags</label>
+        <input type="text" id="resource-create-tags" placeholder="comma separated">
+      </div>
+      <div class="create-field">
+        <label>Content (markdown)</label>
+        <textarea id="resource-create-body" placeholder="paste or type content..."></textarea>
+      </div>
+    </div>
+    <div class="create-modal-footer">
+      <button class="btn" onclick="closeResourceCreate()">cancel</button>
+      <button class="btn btn-primary" onclick="submitResourceCreate()">create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Resource Detail Modal -->
+<div class="modal-backdrop" id="resource-modal-backdrop">
+  <div class="modal" id="resource-modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="modal-column-badge" id="resource-modal-type-badge"></span>
+        <span class="modal-title" id="resource-modal-title"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="resource-modal-edit-btn" onclick="toggleResourceEdit()">edit</button>
+        <button class="btn btn-danger" id="resource-modal-delete-btn" onclick="deleteCurrentResource()">delete</button>
+        <button class="modal-close" onclick="closeResourceModal()">Esc</button>
+      </div>
+    </div>
+    <div class="modal-content">
+      <div class="modal-main" id="resource-modal-main"></div>
+      <div class="modal-sidebar" id="resource-modal-sidebar"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── STATE ──
 let boardData = null;
 let currentTask = null;
 let editMode = false;
 let commentCounts = {};
+let currentView = 'board';
+let resourceData = { prompts: [], reports: [] };
+let currentResource = null;
+let currentResourceType = null;
+let resourceEditMode = false;
+let viewingRevision = null;
 
 // ── API ──
 async function api(path, opts = {}) {
@@ -1382,12 +1644,19 @@ document.addEventListener('keydown', e => {
       if (document.getElementById('create-backdrop').classList.contains('open')) {
         closeCreateModal();
       }
+      if (document.getElementById('resource-create-backdrop').classList.contains('open')) {
+        closeResourceCreate();
+      }
     }
     return;
   }
 
   if (e.key === 'Escape') {
-    if (document.getElementById('create-backdrop').classList.contains('open')) {
+    if (document.getElementById('resource-create-backdrop').classList.contains('open')) {
+      closeResourceCreate();
+    } else if (document.getElementById('resource-modal-backdrop').classList.contains('open')) {
+      closeResourceModal();
+    } else if (document.getElementById('create-backdrop').classList.contains('open')) {
       closeCreateModal();
     } else {
       closeModal();
@@ -1396,9 +1665,13 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'n' || e.key === 'N') {
     e.preventDefault();
-    if (boardData && boardData.columns.length > 0) {
-      const defaultCol = boardData.columns[0].name;
-      openCreateModal(defaultCol);
+    if (currentView === 'board') {
+      if (boardData && boardData.columns.length > 0) {
+        const defaultCol = boardData.columns[0].name;
+        openCreateModal(defaultCol);
+      }
+    } else if (currentView === 'prompts' || currentView === 'reports') {
+      openCreateResource(currentView);
     }
   }
 });
@@ -1411,8 +1684,267 @@ document.getElementById('create-backdrop').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeCreateModal();
 });
 
+// ── VIEW SWITCHING ──
+function switchView(name) {
+  currentView = name;
+  // Update tabs
+  document.querySelectorAll('.header-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.view === name);
+  });
+  // Toggle views
+  document.getElementById('board-view').style.display = name === 'board' ? '' : 'none';
+  const promptsView = document.getElementById('prompts-view');
+  const reportsView = document.getElementById('reports-view');
+  promptsView.classList.toggle('active', name === 'prompts');
+  reportsView.classList.toggle('active', name === 'reports');
+  // Update hash
+  location.hash = name;
+  // Load data
+  if (name === 'prompts') loadResources('prompts');
+  else if (name === 'reports') loadResources('reports');
+}
+
+// ── RESOURCE LIST ──
+async function loadResources(type) {
+  try {
+    resourceData[type] = await api(`/api/${type}`);
+  } catch { resourceData[type] = []; }
+  renderResourceList(type);
+}
+
+function renderResourceList(type) {
+  const list = document.getElementById(`${type}-list`);
+  const count = document.getElementById(`${type}-count`);
+  const items = resourceData[type] || [];
+  count.textContent = items.length;
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="empty-state">no ${type} yet</div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(r => {
+    const m = r.meta;
+    const tags = (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join('');
+    return `
+      <div class="resource-card" onclick="openResource('${type}', '${escAttr(r.dir_name)}')">
+        <div class="resource-card-left">
+          <div class="resource-card-title">${escHtml(m.title || r.dir_name)}</div>
+          <div class="resource-card-meta">
+            <span class="resource-card-date">${escHtml(m.updated || m.created || '')}</span>
+            <span class="resource-card-rev">rev ${m.revision || 1}</span>
+            ${tags}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── RESOURCE CREATE ──
+let createResourceType = null;
+
+function openCreateResource(type) {
+  createResourceType = type;
+  const label = type === 'prompts' ? 'Prompt' : 'Report';
+  document.getElementById('resource-create-title').textContent = `New ${label}`;
+  document.getElementById('resource-create-name').value = '';
+  document.getElementById('resource-create-tags').value = '';
+  document.getElementById('resource-create-body').value = '';
+  document.getElementById('resource-create-backdrop').classList.add('open');
+  document.getElementById('resource-create-name').focus();
+}
+
+function closeResourceCreate() {
+  document.getElementById('resource-create-backdrop').classList.remove('open');
+  createResourceType = null;
+}
+
+async function submitResourceCreate() {
+  const title = document.getElementById('resource-create-name').value.trim();
+  if (!title) return;
+  const tagsRaw = document.getElementById('resource-create-tags').value.trim();
+  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const body = document.getElementById('resource-create-body').value;
+
+  await api(`/api/${createResourceType}`, {
+    method: 'POST',
+    body: JSON.stringify({ title, tags, body }),
+  });
+  closeResourceCreate();
+  loadResources(createResourceType);
+}
+
+document.getElementById('resource-create-backdrop').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeResourceCreate();
+});
+
+// ── RESOURCE DETAIL MODAL ──
+async function openResource(type, dirName) {
+  currentResourceType = type;
+  resourceEditMode = false;
+  viewingRevision = null;
+  try {
+    currentResource = await api(`/api/${type}/${dirName}`);
+  } catch { return; }
+  renderResourceModal();
+  document.getElementById('resource-modal-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeResourceModal() {
+  document.getElementById('resource-modal-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+  currentResource = null;
+  currentResourceType = null;
+  resourceEditMode = false;
+  viewingRevision = null;
+}
+
+async function renderResourceModal() {
+  if (!currentResource) return;
+  const m = currentResource.meta;
+  const body = currentResource.body || '';
+  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'report';
+
+  document.getElementById('resource-modal-title').textContent = m.title || currentResource.dir_name;
+  document.getElementById('resource-modal-type-badge').textContent = typeLabel;
+  document.getElementById('resource-modal-edit-btn').textContent = resourceEditMode ? 'view' : 'edit';
+
+  // Sidebar
+  const sidebar = document.getElementById('resource-modal-sidebar');
+  let sideHtml = '';
+  sideHtml += sidebarField('ID', m.id);
+  sideHtml += sidebarField('Created', m.created || '');
+  sideHtml += sidebarField('Updated', m.updated || m.created || '');
+  sideHtml += sidebarField('Revision', m.revision || 1);
+  sideHtml += sidebarField('Tags', (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
+  sideHtml += sidebarField('Directory', `<span style="color:var(--text-muted);font-size:11px;">${escHtml(currentResource.dir_name)}</span>`);
+  sidebar.innerHTML = sideHtml;
+
+  // Main content
+  const main = document.getElementById('resource-modal-main');
+
+  if (resourceEditMode) {
+    main.innerHTML = `
+      <textarea class="edit-textarea" id="resource-edit-body">${escHtml(body)}</textarea>
+      <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
+        <button class="btn" onclick="toggleResourceEdit()">cancel</button>
+        <button class="btn btn-primary" onclick="saveResourceEdit()">save</button>
+      </div>
+    `;
+    return;
+  }
+
+  // Determine what body to show (current or a specific revision)
+  let displayBody = body;
+  let revisionNote = '';
+  if (viewingRevision) {
+    displayBody = viewingRevision.body || '';
+    revisionNote = `<div style="margin-bottom:12px;padding:8px 12px;border:1px solid rgba(88,166,255,0.3);background:rgba(88,166,255,0.05);font-size:12px;color:var(--text-accent);">Viewing revision ${viewingRevision.meta.revision} &mdash; <a href="#" style="color:var(--text-accent);text-decoration:underline;" onclick="viewingRevision=null;renderResourceModal();return false;">back to current</a></div>`;
+  }
+
+  let html = revisionNote;
+  html += `<div class="rendered">${renderMarkdown(displayBody)}</div>`;
+
+  // Revisions panel
+  html += `<div class="resource-modal-revisions">`;
+  html += `<div class="revisions-header" onclick="toggleRevisions(this)">Revision History</div>`;
+  html += `<div class="revisions-list" id="revisions-list"><span style="color:var(--text-muted);font-size:11px;">loading...</span></div>`;
+  html += `</div>`;
+
+  main.innerHTML = html;
+  loadRevisions();
+}
+
+async function loadRevisions() {
+  if (!currentResource || !currentResourceType) return;
+  try {
+    const revisions = await api(`/api/${currentResourceType}/${currentResource.dir_name}/revisions`);
+    const container = document.getElementById('revisions-list');
+    if (!container) return;
+    if (revisions.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:4px 0;">no revisions yet</div>';
+      return;
+    }
+    container.innerHTML = revisions.map(r => {
+      const active = viewingRevision && viewingRevision.meta.revision === r.meta.revision ? ' active' : '';
+      return `
+        <div class="revision-item${active}" onclick="viewRevision('${escAttr(r.filename)}')">
+          <span class="revision-label">rev ${r.meta.revision}</span>
+          <span class="revision-date">${escHtml(r.meta.created || '')}</span>
+        </div>
+      `;
+    }).join('');
+  } catch {
+    const container = document.getElementById('revisions-list');
+    if (container) container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">failed to load revisions</div>';
+  }
+}
+
+function toggleRevisions(el) {
+  el.classList.toggle('expanded');
+  const list = el.nextElementSibling;
+  list.classList.toggle('expanded');
+}
+
+async function viewRevision(filename) {
+  if (!currentResource || !currentResourceType) return;
+  const rev = filename.replace('.md', '');
+  try {
+    viewingRevision = await api(`/api/${currentResourceType}/${currentResource.dir_name}/revisions/${rev}`);
+    renderResourceModal();
+  } catch {}
+}
+
+function toggleResourceEdit() {
+  resourceEditMode = !resourceEditMode;
+  viewingRevision = null;
+  renderResourceModal();
+}
+
+async function saveResourceEdit() {
+  if (!currentResource || !currentResourceType) return;
+  const body = document.getElementById('resource-edit-body').value;
+  try {
+    currentResource = await api(`/api/${currentResourceType}/${currentResource.dir_name}`, {
+      method: 'PUT',
+      body: JSON.stringify({ body }),
+    });
+    resourceEditMode = false;
+    viewingRevision = null;
+    renderResourceModal();
+    loadResources(currentResourceType);
+  } catch {}
+}
+
+async function deleteCurrentResource() {
+  if (!currentResource || !currentResourceType) return;
+  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'report';
+  if (!confirm(`Delete ${typeLabel} "${currentResource.meta.title}"?`)) return;
+  await api(`/api/${currentResourceType}/${currentResource.dir_name}`, { method: 'DELETE' });
+  closeResourceModal();
+  loadResources(currentResourceType);
+}
+
+document.getElementById('resource-modal-backdrop').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeResourceModal();
+});
+
 // ── INIT ──
+// Hash-based routing
+function initFromHash() {
+  const hash = location.hash.replace('#', '');
+  if (['board', 'prompts', 'reports'].includes(hash)) {
+    switchView(hash);
+  } else {
+    switchView('board');
+  }
+}
+window.addEventListener('hashchange', initFromHash);
+
 loadBoard();
+initFromHash();
 </script>
 </body>
 </html>

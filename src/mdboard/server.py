@@ -4,6 +4,8 @@ Zero dependencies beyond the Python standard library.
 Reads/writes tasks/ directory: directories = columns, .md files = tasks.
 """
 
+from __future__ import annotations
+
 import http.server
 import json
 import os
@@ -136,7 +138,7 @@ def build_frontmatter(meta: dict) -> str:
     """Serialize a dict back to YAML frontmatter block."""
     lines = ["---"]
     # Preserve a sensible key order
-    key_order = ["id", "title", "assignee", "tags", "created", "due", "branch", "completed"]
+    key_order = ["id", "title", "assignee", "tags", "created", "updated", "revision", "due", "branch", "completed"]
     seen = set()
     for k in key_order:
         if k in meta:
@@ -352,11 +354,173 @@ class Board:
 
 
 # ---------------------------------------------------------------------------
+# Resource store (prompts & reports with revision tracking)
+# ---------------------------------------------------------------------------
+
+class ResourceStore:
+    """Manages markdown resources with revision tracking.
+
+    Directory layout:
+        root/{resource_type}/
+            001-my-slug/
+                current.md          # latest version
+                revisions/
+                    001.md           # original snapshot
+                    002.md           # after first edit
+    """
+
+    FRONTMATTER_KEYS = ["id", "title", "created", "updated", "revision", "tags"]
+
+    def __init__(self, project_root: Path, resource_type: str):
+        self.root = project_root / resource_type
+        self.resource_type = resource_type
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _next_id(self) -> int:
+        max_id = 0
+        if not self.root.is_dir():
+            return 1
+        for d in self.root.iterdir():
+            if d.is_dir():
+                match = re.match(r"(\d+)-", d.name)
+                if match:
+                    max_id = max(max_id, int(match.group(1)))
+        return max_id + 1
+
+    def list_resources(self) -> list[dict]:
+        resources = []
+        if not self.root.is_dir():
+            return resources
+        for d in sorted(self.root.iterdir()):
+            if not d.is_dir():
+                continue
+            current = d / "current.md"
+            if not current.exists():
+                continue
+            fm, body = parse_frontmatter(current.read_text())
+            resources.append({
+                "dir_name": d.name,
+                "meta": fm,
+                "body": body,
+            })
+        # Sort newest first by updated/created date
+        resources.sort(
+            key=lambda r: r["meta"].get("updated", r["meta"].get("created", "")),
+            reverse=True,
+        )
+        return resources
+
+    def get_resource(self, dir_name: str) -> dict | None:
+        current = self.root / dir_name / "current.md"
+        if not current.exists():
+            return None
+        fm, body = parse_frontmatter(current.read_text())
+        return {"dir_name": dir_name, "meta": fm, "body": body}
+
+    def create_resource(self, data: dict) -> dict:
+        res_id = self._next_id()
+        title = data.get("title", "Untitled")
+        slug = slugify(title)
+        dir_name = f"{res_id:03d}-{slug}"
+        res_dir = self.root / dir_name
+        res_dir.mkdir(parents=True, exist_ok=True)
+        rev_dir = res_dir / "revisions"
+        rev_dir.mkdir(exist_ok=True)
+
+        today = str(date.today())
+        meta = {
+            "id": res_id,
+            "title": title,
+            "created": today,
+            "updated": today,
+            "revision": 1,
+            "tags": data.get("tags", []),
+        }
+        body = data.get("body", "")
+
+        content = build_frontmatter(meta) + "\n" + body + "\n"
+        (res_dir / "current.md").write_text(content)
+
+        # Save first revision
+        rev_meta = {"revision": 1, "created": today}
+        rev_content = build_frontmatter(rev_meta) + "\n" + body + "\n"
+        (rev_dir / "001.md").write_text(rev_content)
+
+        return {"dir_name": dir_name, "meta": meta, "body": body}
+
+    def update_resource(self, dir_name: str, data: dict) -> dict | None:
+        res_dir = self.root / dir_name
+        current_path = res_dir / "current.md"
+        if not current_path.exists():
+            return None
+
+        # Read current
+        fm, old_body = parse_frontmatter(current_path.read_text())
+        old_rev = fm.get("revision", 1)
+        new_rev = old_rev + 1
+
+        # Save current as revision snapshot
+        rev_dir = res_dir / "revisions"
+        rev_dir.mkdir(exist_ok=True)
+        rev_meta = {"revision": old_rev, "created": fm.get("updated", fm.get("created", ""))}
+        rev_content = build_frontmatter(rev_meta) + "\n" + old_body + "\n"
+        (rev_dir / f"{old_rev:03d}.md").write_text(rev_content)
+
+        # Update current
+        today = str(date.today())
+        fm["revision"] = new_rev
+        fm["updated"] = today
+        if "title" in data:
+            fm["title"] = data["title"]
+        if "tags" in data:
+            fm["tags"] = data["tags"]
+
+        new_body = data.get("body", old_body)
+        content = build_frontmatter(fm) + "\n" + new_body + "\n"
+        current_path.write_text(content)
+
+        return {"dir_name": dir_name, "meta": fm, "body": new_body}
+
+    def delete_resource(self, dir_name: str) -> bool:
+        res_dir = self.root / dir_name
+        if not res_dir.is_dir():
+            return False
+        shutil.rmtree(res_dir)
+        return True
+
+    def list_revisions(self, dir_name: str) -> list[dict]:
+        rev_dir = self.root / dir_name / "revisions"
+        if not rev_dir.is_dir():
+            return []
+        revisions = []
+        for f in sorted(rev_dir.glob("*.md")):
+            fm, body = parse_frontmatter(f.read_text())
+            revisions.append({
+                "filename": f.name,
+                "meta": fm,
+                "body": body,
+            })
+        return revisions
+
+    def get_revision(self, dir_name: str, rev: str) -> dict | None:
+        # rev can be "001" or "001.md"
+        if not rev.endswith(".md"):
+            rev = rev + ".md"
+        path = self.root / dir_name / "revisions" / rev
+        if not path.exists():
+            return None
+        fm, body = parse_frontmatter(path.read_text())
+        return {"filename": path.name, "meta": fm, "body": body}
+
+
+# ---------------------------------------------------------------------------
 # HTTP Handler
 # ---------------------------------------------------------------------------
 
 class BoardHandler(http.server.BaseHTTPRequestHandler):
     board: Board
+    prompts: ResourceStore
+    reports: ResourceStore
     html_path: object  # Path or importlib.resources Traversable
 
     def log_message(self, fmt, *args):
@@ -458,7 +622,78 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
                     return self._send_json({"ok": True})
                 return self._send_error(404, "Task not found")
 
+        # ── Resource routes (prompts & reports) ──
+        for prefix, store in (("/api/prompts", self.prompts), ("/api/reports", self.reports)):
+            result = self._route_resource(method, path, prefix, store)
+            if result is not None:
+                return result
+
         self._send_error(404, "Not found")
+
+    def _route_resource(self, method: str, path: str, prefix: str, store: ResourceStore):
+        """Route /api/prompts or /api/reports requests. Returns True if handled, None if not."""
+        # GET /api/{type} — list all
+        if path == prefix and method == "GET":
+            self._send_json(store.list_resources())
+            return True
+
+        # POST /api/{type} — create
+        if path == prefix and method == "POST":
+            data = self._read_body()
+            result = store.create_resource(data)
+            self._send_json(result, 201)
+            return True
+
+        # /api/{type}/{dir}/revisions/{rev}
+        rm = re.match(rf"^{re.escape(prefix)}/([^/]+)/revisions/([^/]+)$", path)
+        if rm:
+            dir_name, rev = rm.group(1), rm.group(2)
+            if method == "GET":
+                result = store.get_revision(dir_name, rev)
+                if result:
+                    self._send_json(result)
+                    return True
+                self._send_error(404, "Revision not found")
+                return True
+            return None
+
+        # /api/{type}/{dir}/revisions
+        rm2 = re.match(rf"^{re.escape(prefix)}/([^/]+)/revisions$", path)
+        if rm2:
+            dir_name = rm2.group(1)
+            if method == "GET":
+                self._send_json(store.list_revisions(dir_name))
+                return True
+            return None
+
+        # /api/{type}/{dir}
+        dm = re.match(rf"^{re.escape(prefix)}/([^/]+)$", path)
+        if dm:
+            dir_name = dm.group(1)
+            if method == "GET":
+                result = store.get_resource(dir_name)
+                if result:
+                    self._send_json(result)
+                    return True
+                self._send_error(404, f"{store.resource_type[:-1].title()} not found")
+                return True
+            if method == "PUT":
+                data = self._read_body()
+                result = store.update_resource(dir_name, data)
+                if result:
+                    self._send_json(result)
+                    return True
+                self._send_error(404, f"{store.resource_type[:-1].title()} not found")
+                return True
+            if method == "DELETE":
+                ok = store.delete_resource(dir_name)
+                if ok:
+                    self._send_json({"ok": True})
+                    return True
+                self._send_error(404, f"{store.resource_type[:-1].title()} not found")
+                return True
+
+        return None
 
     def do_GET(self):
         self._route("GET")
@@ -492,8 +727,11 @@ def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
     html_path = files("mdboard").joinpath("_assets", "index.html")
 
     board = Board(str(tasks_path))
+    project_root = tasks_path.parent
 
     BoardHandler.board = board
+    BoardHandler.prompts = ResourceStore(project_root, "prompts")
+    BoardHandler.reports = ResourceStore(project_root, "reports")
     BoardHandler.html_path = html_path
 
     # Allow port reuse
