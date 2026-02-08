@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Task Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-overlay: #1c2128;
+  --bg-hover: #21262d;
+  --bg-active: #282e36;
+  --border: #30363d;
+  --border-light: #3a424b;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --text-accent: #58a6ff;
+  --danger: #f85149;
+  --font: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  height: 52px;
+  flex-shrink: 0;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.logo span { color: var(--text-muted); }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font);
+}
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+.filter-bar label {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.filter-bar select, .filter-bar input {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 4px 8px;
+  outline: none;
+}
+.filter-bar select:focus, .filter-bar input:focus {
+  border-color: var(--text-accent);
+}
+.filter-bar select { cursor: pointer; }
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.filter-clear {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.filter-clear:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+/* ── BOARD ── */
+.board-container {
+  display: flex;
+  height: calc(100vh - 52px - 37px);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.column {
+  flex: 0 0 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  height: 100%;
+}
+.column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+  position: relative;
+}
+.column-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.column-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-overlay);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+}
+.column-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.column-body::-webkit-scrollbar { width: 4px; }
+.column-body::-webkit-scrollbar-track { background: transparent; }
+.column-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-overlay);
+}
+.card.dragging {
+  opacity: 0.4;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.tag-pill {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.assignee-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(88, 166, 255, 0.1);
+  color: var(--text-accent);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  margin-left: auto;
+}
+.due-badge {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.due-badge.overdue {
+  color: var(--danger);
+}
+.checkbox-progress {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.comment-count {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Column drop target */
+.column-body.drag-over {
+  background: rgba(88, 166, 255, 0.03);
+}
+.column-body.drag-over::after {
+  content: '';
+  display: block;
+  height: 3px;
+  background: var(--text-accent);
+  opacity: 0.4;
+  margin: 4px 0;
+}
+
+/* ── ADD TASK BUTTON ── */
+.add-task-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.add-task-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+/* ── CREATE TASK MODAL ── */
+.create-backdrop {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1100;
+  backdrop-filter: blur(4px);
+}
+.create-backdrop.open { display: flex; align-items: center; justify-content: center; }
+.create-modal {
+  width: 90vw;
+  max-width: 860px;
+  max-height: 88vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+.create-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.create-modal-header span {
+  font-size: 14px;
+  font-weight: 600;
+}
+.create-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.create-modal-body::-webkit-scrollbar { width: 6px; }
+.create-modal-body::-webkit-scrollbar-track { background: transparent; }
+.create-modal-body::-webkit-scrollbar-thumb { background: var(--border); }
+.create-field label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.create-field input,
+.create-field textarea,
+.create-field select {
+  width: 100%;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+.create-field input:focus,
+.create-field textarea:focus,
+.create-field select:focus {
+  border-color: var(--text-accent);
+}
+.create-field textarea {
+  min-height: 340px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.create-row {
+  display: flex;
+  gap: 12px;
+}
+.create-row > * { flex: 1; }
+.create-modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-hover); }
+.btn-primary {
+  background: rgba(88, 166, 255, 0.15);
+  border-color: rgba(88, 166, 255, 0.3);
+  color: var(--text-accent);
+}
+.btn-primary:hover {
+  background: rgba(88, 166, 255, 0.25);
+}
+.btn-danger {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.2);
+  color: var(--danger);
+}
+.btn-danger:hover {
+  background: rgba(248, 81, 73, 0.2);
+}
+
+/* ── MODAL ── */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+.modal-backdrop.open { display: flex; align-items: center; justify-content: center; }
+
+.modal {
+  width: 92vw;
+  height: 90vh;
+  max-width: 1200px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modal-column-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  white-space: nowrap;
+}
+.modal-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: var(--font);
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+.modal-close:hover { color: var(--text-primary); border-color: var(--border-light); }
+.modal-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.modal-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.modal-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px;
+  min-width: 0;
+}
+.modal-main::-webkit-scrollbar { width: 6px; }
+.modal-main::-webkit-scrollbar-track { background: transparent; }
+.modal-main::-webkit-scrollbar-thumb { background: var(--border); }
+
+.modal-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--bg-base);
+}
+.modal-sidebar::-webkit-scrollbar { width: 4px; }
+.modal-sidebar::-webkit-scrollbar-track { background: transparent; }
+.modal-sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+.sidebar-section {
+  margin-bottom: 16px;
+}
+.sidebar-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.sidebar-value {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.sidebar-value .tag-pill { margin-right: 4px; margin-bottom: 2px; display: inline-block; }
+
+/* ── Rendered markdown ── */
+.rendered h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 24px 0 10px 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.rendered h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 22px 0 8px 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.rendered h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 18px 0 6px 0;
+  color: var(--text-primary);
+}
+.rendered h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 4px 0;
+  color: var(--text-secondary);
+}
+.rendered p {
+  margin: 8px 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.rendered ul, .rendered ol {
+  margin: 8px 0;
+  padding-left: 22px;
+  color: var(--text-secondary);
+}
+.rendered li {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+.rendered code {
+  background: var(--bg-overlay);
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.rendered pre {
+  background: var(--bg-base);
+  padding: 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  line-height: 1.6;
+  font-size: 12px;
+}
+.rendered pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+.rendered strong { color: var(--text-primary); }
+.rendered em { font-style: italic; }
+.rendered a { color: var(--text-accent); }
+.rendered blockquote {
+  border-left: 3px solid var(--border-light);
+  padding: 4px 16px;
+  margin: 10px 0;
+  color: var(--text-muted);
+}
+.rendered hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.rendered table {
+  border-collapse: collapse;
+  margin: 10px 0;
+  width: 100%;
+}
+.rendered th, .rendered td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  font-size: 12px;
+  text-align: left;
+}
+.rendered th {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.rendered td {
+  color: var(--text-secondary);
+}
+
+.code-block-wrapper {
+  position: relative;
+  margin: 12px 0;
+}
+.code-lang-label {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  background: var(--bg-overlay);
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.rendered .task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-overlay);
+  cursor: pointer;
+  vertical-align: middle;
+  margin-right: 6px;
+  position: relative;
+}
+.rendered .task-checkbox:checked {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--text-accent);
+}
+.rendered .task-checkbox:checked::after {
+  content: '\2713';
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  font-size: 11px;
+  color: var(--text-accent);
+}
+
+/* Edit mode */
+.edit-textarea {
+  width: 100%;
+  min-height: 500px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 16px;
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+}
+.edit-textarea:focus {
+  border-color: var(--text-accent);
+}
+
+/* ── COMMENTS ── */
+.comments-section {
+  border-top: 1px solid var(--border);
+  margin-top: 28px;
+  padding-top: 20px;
+}
+.comments-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.comment {
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  margin-bottom: 10px;
+  padding: 12px 16px;
+}
+.comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.comment-author {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-accent);
+}
+.comment-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.comment-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 0 4px;
+}
+.comment-delete:hover { color: var(--danger); }
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.comment-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.comment-input {
+  width: 100%;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+.comment-input:focus { border-color: var(--text-accent); }
+.comment-author-input {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  width: 180px;
+}
+.comment-author-input:focus { border-color: var(--text-accent); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  padding: 20px 10px;
+  font-style: italic;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .board-container {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .column {
+    flex: none;
+    min-width: 100%;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: none;
+    height: auto;
+  }
+  .column-body {
+    overflow-y: visible;
+    min-height: 60px;
+  }
+  .modal {
+    width: 100vw;
+    height: 100vh;
+  }
+  .modal-sidebar {
+    display: none;
+  }
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">taskboard<span>/</span></div>
+  </div>
+  <div class="header-right">
+    <span class="kbd">N</span> <span style="color:var(--text-muted);font-size:11px;">new task</span>
+    <span class="kbd" style="margin-left:8px;">Esc</span> <span style="color:var(--text-muted);font-size:11px;">close</span>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <label>assignee</label>
+    <input type="text" id="filter-assignee" placeholder="filter..." style="width:100px;">
+  </div>
+  <div class="filter-group">
+    <label>tag</label>
+    <input type="text" id="filter-tag" placeholder="filter..." style="width:100px;">
+  </div>
+  <button class="filter-clear" onclick="clearFilters()">clear</button>
+</div>
+
+<div class="board-container" id="board"></div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal" id="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-left">
+        <span class="modal-column-badge" id="modal-column-badge"></span>
+        <span class="modal-title" id="modal-title"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="modal-edit-btn" onclick="toggleEditMode()">edit</button>
+        <button class="btn btn-danger" id="modal-delete-btn" onclick="deleteCurrentTask()">delete</button>
+        <button class="modal-close" onclick="closeModal()">Esc</button>
+      </div>
+    </div>
+    <div class="modal-content">
+      <div class="modal-main" id="modal-main"></div>
+      <div class="modal-sidebar" id="modal-sidebar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Task Modal -->
+<div class="create-backdrop" id="create-backdrop">
+  <div class="create-modal" onclick="event.stopPropagation()">
+    <div class="create-modal-header">
+      <span>New Task</span>
+      <button class="modal-close" onclick="closeCreateModal()">Esc</button>
+    </div>
+    <div class="create-modal-body">
+      <div class="create-field">
+        <label>Title</label>
+        <input type="text" id="create-title" placeholder="task title">
+      </div>
+      <div class="create-row">
+        <div class="create-field">
+          <label>Column</label>
+          <select id="create-column"></select>
+        </div>
+        <div class="create-field">
+          <label>Assignee</label>
+          <input type="text" id="create-assignee" placeholder="assignee">
+        </div>
+        <div class="create-field">
+          <label>Tags</label>
+          <input type="text" id="create-tags" placeholder="comma separated">
+        </div>
+      </div>
+      <div class="create-field">
+        <label>Description (markdown)</label>
+        <textarea id="create-desc" placeholder="paste or type markdown content..."></textarea>
+      </div>
+    </div>
+    <div class="create-modal-footer">
+      <button class="btn" onclick="closeCreateModal()">cancel</button>
+      <button class="btn btn-primary" onclick="submitCreateModal()">create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let boardData = null;
+let currentTask = null;
+let editMode = false;
+let commentCounts = {};
+
+// ── API ──
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json();
+}
+
+// ── LOAD BOARD ──
+async function loadBoard() {
+  boardData = await api('/api/board');
+  // Preload comment counts
+  const allTasks = boardData.columns.flatMap(c => c.tasks);
+  const counts = await Promise.all(
+    allTasks.map(async t => {
+      const id = t.meta.id;
+      if (id == null) return [null, 0];
+      try {
+        const comments = await api(`/api/comments/${id}`);
+        return [id, comments.length];
+      } catch { return [id, 0]; }
+    })
+  );
+  commentCounts = {};
+  counts.forEach(([id, n]) => { if (id != null) commentCounts[id] = n; });
+  renderBoard();
+}
+
+// ── FILTERS ──
+function getFilters() {
+  return {
+    assignee: document.getElementById('filter-assignee').value.toLowerCase().trim(),
+    tag: document.getElementById('filter-tag').value.toLowerCase().trim(),
+  };
+}
+
+function matchesFilter(task) {
+  const f = getFilters();
+  const m = task.meta;
+  if (f.assignee && !(m.assignee || '').toLowerCase().includes(f.assignee)) return false;
+  if (f.tag) {
+    const tags = (m.tags || []).map(t => t.toLowerCase());
+    if (!tags.some(t => t.includes(f.tag))) return false;
+  }
+  return true;
+}
+
+function clearFilters() {
+  document.getElementById('filter-assignee').value = '';
+  document.getElementById('filter-tag').value = '';
+  renderBoard();
+}
+
+document.getElementById('filter-assignee').addEventListener('input', renderBoard);
+document.getElementById('filter-tag').addEventListener('input', renderBoard);
+
+// ── CHECKBOX PROGRESS ──
+function checkboxProgress(body) {
+  const total = (body.match(/- \[[ x]\]/g) || []).length;
+  if (total === 0) return null;
+  const checked = (body.match(/- \[x\]/gi) || []).length;
+  return { checked, total };
+}
+
+// ── DUE DATE ──
+function isDueOverdue(due) {
+  if (!due) return false;
+  const d = new Date(due);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return d < today;
+}
+
+// ── RENDER BOARD ──
+function renderBoard() {
+  if (!boardData) return;
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  boardData.columns.forEach(col => {
+    const filteredTasks = col.tasks.filter(matchesFilter);
+    const colEl = document.createElement('div');
+    colEl.className = 'column';
+    colEl.innerHTML = `
+      <div class="column-header" style="border-top: 2px solid ${col.color}">
+        <span class="column-title" style="color:${col.color}">${escHtml(col.label)}</span>
+        <span class="column-count">${filteredTasks.length}</span>
+      </div>
+      <div class="column-body" data-column="${col.name}">
+        ${filteredTasks.length === 0 ? '<div class="empty-state">no tasks</div>' : ''}
+      </div>
+    `;
+
+    const body = colEl.querySelector('.column-body');
+
+    filteredTasks.forEach(task => {
+      const card = createCard(task);
+      body.appendChild(card);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-task-btn';
+    addBtn.innerHTML = '+ new task';
+    addBtn.onclick = () => openCreateModal(col.name);
+    body.appendChild(addBtn);
+
+    // Drag-and-drop
+    body.addEventListener('dragover', e => {
+      e.preventDefault();
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', () => {
+      body.classList.remove('drag-over');
+    });
+    body.addEventListener('drop', async e => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.from_column === col.name) return;
+      await api('/api/task/move', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          filename: data.filename,
+          from_column: data.from_column,
+          to_column: col.name,
+        }),
+      });
+      if (currentTask && currentTask.filename === data.filename) {
+        currentTask.column = col.name;
+      }
+      loadBoard();
+    });
+
+    board.appendChild(colEl);
+  });
+}
+
+function createCard(task) {
+  const m = task.meta;
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.draggable = true;
+
+  let html = `<div class="card-title">${escHtml(m.title || task.filename)}</div>`;
+  html += `<div class="card-meta">`;
+
+  const tags = m.tags || [];
+  tags.forEach(t => {
+    html += `<span class="tag-pill">${escHtml(t)}</span>`;
+  });
+
+  const prog = checkboxProgress(task.body || '');
+  if (prog) {
+    html += `<span class="checkbox-progress">${prog.checked}/${prog.total}</span>`;
+  }
+
+  if (m.due) {
+    const overdue = isDueOverdue(m.due);
+    html += `<span class="due-badge${overdue ? ' overdue' : ''}">${m.due}</span>`;
+  }
+
+  const cc = commentCounts[m.id];
+  if (cc > 0) {
+    html += `<span class="comment-count">${cc} comment${cc !== 1 ? 's' : ''}</span>`;
+  }
+
+  if (m.assignee) {
+    html += `<span class="assignee-badge">${escHtml(m.assignee)}</span>`;
+  }
+
+  html += `</div>`;
+  card.innerHTML = html;
+
+  card.addEventListener('click', e => {
+    if (e.defaultPrevented) return;
+    openModal(task);
+  });
+
+  card.addEventListener('dragstart', e => {
+    card.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      filename: task.filename,
+      from_column: task.column,
+    }));
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+  });
+
+  return card;
+}
+
+// ── MODAL ──
+function openModal(task) {
+  currentTask = task;
+  editMode = false;
+  renderModal();
+  document.getElementById('modal-backdrop').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  document.body.style.overflow = '';
+  currentTask = null;
+  editMode = false;
+}
+
+async function renderModal() {
+  if (!currentTask) return;
+  const m = currentTask.meta;
+  const body = currentTask.body || '';
+
+  document.getElementById('modal-title').textContent = m.title || currentTask.filename;
+  document.getElementById('modal-column-badge').textContent = currentTask.column;
+  document.getElementById('modal-edit-btn').textContent = editMode ? 'view' : 'edit';
+
+  // Sidebar
+  const sidebar = document.getElementById('modal-sidebar');
+  let sideHtml = '';
+  sideHtml += sidebarField('ID', m.id);
+  sideHtml += sidebarField('Assignee', m.assignee || '<span style="color:var(--text-muted)">unassigned</span>');
+  sideHtml += sidebarField('Tags', (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
+  sideHtml += sidebarField('Created', m.created || '');
+  if (m.due) sideHtml += sidebarField('Due', `<span style="${isDueOverdue(m.due) ? 'color:var(--danger)' : ''}">${m.due}</span>`);
+  if (m.branch) sideHtml += sidebarField('Branch', `<span style="color:var(--text-accent)">${escHtml(m.branch)}</span>`);
+  if (m.completed) sideHtml += sidebarField('Completed', m.completed);
+  sideHtml += sidebarField('File', `<span style="color:var(--text-muted);font-size:11px;">${escHtml(currentTask.filename)}</span>`);
+  sidebar.innerHTML = sideHtml;
+
+  // Main content
+  const main = document.getElementById('modal-main');
+
+  if (editMode) {
+    const raw = buildRawContent(currentTask);
+    main.innerHTML = `
+      <textarea class="edit-textarea" id="edit-raw">${escHtml(raw)}</textarea>
+      <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
+        <button class="btn" onclick="toggleEditMode()">cancel</button>
+        <button class="btn btn-primary" onclick="saveEdit()">save</button>
+      </div>
+    `;
+    return;
+  }
+
+  // View mode
+  let html = `<div class="rendered">${renderMarkdown(body)}</div>`;
+
+  // Comments
+  html += `<div class="comments-section" id="comments-section">`;
+  html += `<div class="comments-header">Comments</div>`;
+  html += `<div id="comments-list"><span style="color:var(--text-muted);font-size:11px;">loading...</span></div>`;
+  html += `<div class="comment-form">`;
+  html += `<div class="comment-form-row">`;
+  html += `<input type="text" class="comment-author-input" id="comment-author" placeholder="your name" value="${escHtml(localStorage.getItem('comment-author') || '')}">`;
+  html += `</div>`;
+  html += `<textarea class="comment-input" id="comment-body" placeholder="write a comment... (markdown supported)"></textarea>`;
+  html += `<div style="display:flex;justify-content:flex-end;">`;
+  html += `<button class="btn btn-primary" onclick="submitComment()">comment</button>`;
+  html += `</div>`;
+  html += `</div>`;
+  html += `</div>`;
+
+  main.innerHTML = html;
+  loadComments();
+}
+
+function sidebarField(label, value) {
+  return `<div class="sidebar-section"><div class="sidebar-label">${label}</div><div class="sidebar-value">${value}</div></div>`;
+}
+
+function toggleEditMode() {
+  editMode = !editMode;
+  renderModal();
+}
+
+async function saveEdit() {
+  if (!currentTask) return;
+  const raw = document.getElementById('edit-raw').value;
+  await api(`/api/task/${currentTask.column}/${currentTask.filename}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content: raw }),
+  });
+  const updated = await api(`/api/task/${currentTask.column}/${currentTask.filename}`);
+  currentTask = updated;
+  editMode = false;
+  renderModal();
+  loadBoard();
+}
+
+async function deleteCurrentTask() {
+  if (!currentTask) return;
+  if (!confirm(`Delete "${currentTask.meta.title}"?`)) return;
+  await api(`/api/task/${currentTask.column}/${currentTask.filename}`, {
+    method: 'DELETE',
+  });
+  closeModal();
+  loadBoard();
+}
+
+// ── COMMENTS ──
+async function loadComments() {
+  if (!currentTask || currentTask.meta.id == null) return;
+  const taskId = currentTask.meta.id;
+  try {
+    const comments = await api(`/api/comments/${taskId}`);
+    const container = document.getElementById('comments-list');
+    if (!container) return;
+    if (comments.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px 0;">no comments yet</div>';
+      return;
+    }
+    container.innerHTML = comments.map(c => {
+      const author = c.meta.author || 'anonymous';
+      const created = c.meta.created || '';
+      return `
+        <div class="comment">
+          <div class="comment-meta">
+            <span class="comment-author">${escHtml(author)}</span>
+            <span>
+              <span class="comment-date">${escHtml(created)}</span>
+              <button class="comment-delete" onclick="deleteComment(${taskId}, '${escAttr(c.filename)}')" title="delete">x</button>
+            </span>
+          </div>
+          <div class="rendered">${renderMarkdown(c.body || '')}</div>
+        </div>
+      `;
+    }).join('');
+  } catch {
+    const container = document.getElementById('comments-list');
+    if (container) container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;">failed to load comments</div>';
+  }
+}
+
+async function submitComment() {
+  if (!currentTask || currentTask.meta.id == null) return;
+  const bodyEl = document.getElementById('comment-body');
+  const authorEl = document.getElementById('comment-author');
+  const body = bodyEl.value.trim();
+  if (!body) return;
+  const author = authorEl.value.trim() || 'anonymous';
+
+  localStorage.setItem('comment-author', author);
+
+  await api(`/api/comments/${currentTask.meta.id}`, {
+    method: 'POST',
+    body: JSON.stringify({ author, body }),
+  });
+
+  bodyEl.value = '';
+  loadComments();
+  commentCounts[currentTask.meta.id] = (commentCounts[currentTask.meta.id] || 0) + 1;
+  renderBoard();
+}
+
+async function deleteComment(taskId, filename) {
+  if (!confirm('Delete this comment?')) return;
+  await api(`/api/comments/${taskId}/${filename}`, { method: 'DELETE' });
+  loadComments();
+  commentCounts[taskId] = Math.max(0, (commentCounts[taskId] || 1) - 1);
+  renderBoard();
+}
+
+function buildRawContent(task) {
+  const m = task.meta;
+  let lines = ['---'];
+  const keys = ['id', 'title', 'priority', 'assignee', 'tags', 'created', 'due', 'branch', 'completed'];
+  const seen = new Set();
+  keys.forEach(k => {
+    if (m[k] !== undefined && m[k] !== null) {
+      lines.push(`${k}: ${yamlVal(m[k])}`);
+      seen.add(k);
+    }
+  });
+  Object.keys(m).forEach(k => {
+    if (!seen.has(k)) {
+      lines.push(`${k}: ${yamlVal(m[k])}`);
+    }
+  });
+  lines.push('---');
+  lines.push('');
+  lines.push(task.body || '');
+  return lines.join('\n');
+}
+
+function yamlVal(v) {
+  if (Array.isArray(v)) return '[' + v.join(', ') + ']';
+  if (v === '' || v === null || v === undefined) return '""';
+  return String(v);
+}
+
+// ── CREATE TASK MODAL ──
+function openCreateModal(colName) {
+  const sel = document.getElementById('create-column');
+  sel.innerHTML = '';
+  if (boardData) {
+    boardData.columns.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = c.label;
+      if (c.name === colName) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  document.getElementById('create-title').value = '';
+  document.getElementById('create-assignee').value = '';
+  document.getElementById('create-tags').value = '';
+  document.getElementById('create-desc').value = '';
+  document.getElementById('create-backdrop').classList.add('open');
+  document.getElementById('create-title').focus();
+}
+
+function closeCreateModal() {
+  document.getElementById('create-backdrop').classList.remove('open');
+}
+
+async function submitCreateModal() {
+  const title = document.getElementById('create-title').value.trim();
+  if (!title) return;
+  const column = document.getElementById('create-column').value;
+  const assignee = document.getElementById('create-assignee').value.trim();
+  const tagsRaw = document.getElementById('create-tags').value.trim();
+  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const description = document.getElementById('create-desc').value;
+
+  await api('/api/task', {
+    method: 'POST',
+    body: JSON.stringify({ column, title, description, assignee, tags }),
+  });
+  closeCreateModal();
+  loadBoard();
+}
+
+// ── MARKDOWN RENDERER ──
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = md;
+
+  // Code blocks with language labels
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const label = lang ? `<span class="code-lang-label">${escHtml(lang)}</span>` : '';
+    return `<div class="code-block-wrapper">${label}<pre><code>${escHtml(code.trimEnd())}</code></pre></div>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Horizontal rule
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // Blockquotes
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Checkboxes
+  html = html.replace(/^- \[x\] (.+)$/gim, '<li><input type="checkbox" class="task-checkbox" checked disabled> $1</li>');
+  html = html.replace(/^- \[ \] (.+)$/gm, '<li><input type="checkbox" class="task-checkbox" disabled> $1</li>');
+
+  // Unordered list items
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+  // Bold / italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // HTML comments
+  html = html.replace(/<!--[\s\S]*?-->/g, '');
+
+  // Paragraphs
+  html = html.replace(/\n\n+/g, '</p><p>');
+  html = html.replace(/^(?!<[huplobdr])/gm, '');
+
+  return html;
+}
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  return escHtml(s).replace(/'/g, '&#39;');
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+    if (e.key === 'Escape') {
+      e.target.blur();
+      if (document.getElementById('create-backdrop').classList.contains('open')) {
+        closeCreateModal();
+      }
+    }
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    if (document.getElementById('create-backdrop').classList.contains('open')) {
+      closeCreateModal();
+    } else {
+      closeModal();
+    }
+  }
+
+  if (e.key === 'n' || e.key === 'N') {
+    e.preventDefault();
+    if (boardData && boardData.columns.length > 0) {
+      const defaultCol = boardData.columns[0].name;
+      openCreateModal(defaultCol);
+    }
+  }
+});
+
+// Close modals on backdrop click
+document.getElementById('modal-backdrop').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('create-backdrop').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeCreateModal();
+});
+
+// ── INIT ──
+loadBoard();
+</script>
+</body>
+</html>
