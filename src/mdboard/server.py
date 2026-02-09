@@ -6,6 +6,7 @@ Reads/writes tasks/ directory: directories = columns, .md files = tasks.
 
 from __future__ import annotations
 
+import hashlib
 import http.server
 import json
 import os
@@ -138,7 +139,7 @@ def build_frontmatter(meta: dict) -> str:
     """Serialize a dict back to YAML frontmatter block."""
     lines = ["---"]
     # Preserve a sensible key order
-    key_order = ["id", "title", "assignee", "tags", "created", "updated", "revision", "due", "branch", "completed"]
+    key_order = ["id", "title", "assignee", "tags", "created", "updated", "revision", "due", "branch", "completed", "related"]
     seen = set()
     for k in key_order:
         if k in meta:
@@ -313,6 +314,17 @@ class Board:
             if col_dir.is_dir():
                 total += len(list(col_dir.glob("*.md")))
         return total
+
+    def get_state_hash(self) -> str:
+        """Return a hash based on file names and mtimes across all columns."""
+        h = hashlib.md5()
+        for col in self.column_names():
+            col_dir = self.root / col
+            if not col_dir.is_dir():
+                continue
+            for f in sorted(col_dir.glob("*.md")):
+                h.update(f"{f.name}:{f.stat().st_mtime_ns}".encode())
+        return h.hexdigest()
 
     # ── Comments ──
 
@@ -502,6 +514,19 @@ class ResourceStore:
             })
         return revisions
 
+    def get_state_hash(self) -> str:
+        """Return a hash based on resource dirs and current.md mtimes."""
+        h = hashlib.md5()
+        if not self.root.is_dir():
+            return h.hexdigest()
+        for d in sorted(self.root.iterdir()):
+            if not d.is_dir():
+                continue
+            current = d / "current.md"
+            if current.exists():
+                h.update(f"{d.name}:{current.stat().st_mtime_ns}".encode())
+        return h.hexdigest()
+
     def get_revision(self, dir_name: str, rev: str) -> dict | None:
         # rev can be "001" or "001.md"
         if not rev.endswith(".md"):
@@ -520,7 +545,7 @@ class ResourceStore:
 class BoardHandler(http.server.BaseHTTPRequestHandler):
     board: Board
     prompts: ResourceStore
-    reports: ResourceStore
+    documents: ResourceStore
     html_path: object  # Path or importlib.resources Traversable
 
     def log_message(self, fmt, *args):
@@ -563,6 +588,16 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
         # API routes
         if path == "/api/board" and method == "GET":
             return self._send_json(self.board.get_board())
+
+        if path == "/api/activity" and method == "GET":
+            return self._send_json(self._get_activity())
+
+        if path == "/api/poll" and method == "GET":
+            return self._send_json({
+                "board": self.board.get_state_hash(),
+                "prompts": self.prompts.get_state_hash(),
+                "documents": self.documents.get_state_hash(),
+            })
 
         if path == "/api/config" and method == "GET":
             return self._send_json(self.board.config)
@@ -623,7 +658,7 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
                 return self._send_error(404, "Task not found")
 
         # ── Resource routes (prompts & reports) ──
-        for prefix, store in (("/api/prompts", self.prompts), ("/api/reports", self.reports)):
+        for prefix, store in (("/api/prompts", self.prompts), ("/api/documents", self.documents)):
             result = self._route_resource(method, path, prefix, store)
             if result is not None:
                 return result
@@ -695,6 +730,52 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 
         return None
 
+    def _get_activity(self, limit: int = 50) -> list[dict]:
+        """Collect recent file changes across tasks, prompts, and documents."""
+        entries = []
+
+        # Tasks
+        for col_info in self.board.columns():
+            col = col_info["name"]
+            col_dir = self.board.root / col
+            if not col_dir.is_dir():
+                continue
+            for f in col_dir.glob("*.md"):
+                fm, _ = parse_frontmatter(f.read_text())
+                mtime = f.stat().st_mtime
+                entries.append({
+                    "type": "task",
+                    "title": fm.get("title", f.stem),
+                    "id": fm.get("id"),
+                    "column": col,
+                    "mtime": mtime,
+                    "filename": f.name,
+                })
+
+        # Prompts and documents
+        for rtype, store in (("prompt", self.prompts), ("document", self.documents)):
+            if not store.root.is_dir():
+                continue
+            for d in store.root.iterdir():
+                if not d.is_dir():
+                    continue
+                current = d / "current.md"
+                if not current.exists():
+                    continue
+                fm, _ = parse_frontmatter(current.read_text())
+                mtime = current.stat().st_mtime
+                entries.append({
+                    "type": rtype,
+                    "title": fm.get("title", d.name),
+                    "id": fm.get("id"),
+                    "dir_name": d.name,
+                    "mtime": mtime,
+                    "revision": fm.get("revision", 1),
+                })
+
+        entries.sort(key=lambda e: e["mtime"], reverse=True)
+        return entries[:limit]
+
     def do_GET(self):
         self._route("GET")
 
@@ -731,7 +812,7 @@ def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
 
     BoardHandler.board = board
     BoardHandler.prompts = ResourceStore(project_root, "prompts")
-    BoardHandler.reports = ResourceStore(project_root, "reports")
+    BoardHandler.documents = ResourceStore(project_root, "documents")
     BoardHandler.html_path = html_path
 
     # Allow port reuse

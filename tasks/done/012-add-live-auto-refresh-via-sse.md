@@ -1,9 +1,10 @@
 ---
 id: 12
 title: Add live auto-refresh via SSE
-assignee: ""
-tags: [frontend, ux, sse]
+assignee: claude
+tags: [frontend, ux, polling]
 created: 2026-02-09
+completed: 2026-02-09
 ---
 
 ## Description
@@ -20,3 +21,7 @@ Options:
 
 
 ## Notes
+- Chose polling approach (zero-dep, simpler than SSE with filesystem watchers)
+- Backend: `/api/poll` returns MD5 hashes of file names + mtimes for board, prompts, documents
+- Frontend: polls every 3 seconds, compares hashes, re-fetches only changed views
+- First poll initializes hashes without triggering reload

@@ -370,13 +370,18 @@ html, body {
   padding: 8px 10px;
   outline: none;
 }
+.create-textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+}
 .create-field input:focus,
 .create-field textarea:focus,
 .create-field select:focus {
   border-color: var(--text-accent);
 }
 .create-field textarea {
-  min-height: 340px;
+  min-height: 200px;
   resize: vertical;
   line-height: 1.6;
 }
@@ -696,6 +701,36 @@ html, body {
   border-color: var(--text-accent);
 }
 
+/* ── EDITOR SPLIT PREVIEW ── */
+.editor-split {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+.editor-split .edit-textarea,
+.editor-split .create-textarea {
+  flex: 1;
+  min-width: 0;
+}
+.editor-preview {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.editor-preview-label {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
 /* ── COMMENTS ── */
 .comments-section {
   border-top: 1px solid var(--border);
@@ -779,7 +814,7 @@ html, body {
 }
 .comment-author-input:focus { border-color: var(--text-accent); }
 
-/* ── RESOURCE VIEWS (prompts/reports) ── */
+/* ── RESOURCE VIEWS (prompts/documents) ── */
 .resource-view {
   display: none;
   flex-direction: column;
@@ -931,6 +966,88 @@ html, body {
   color: var(--text-muted);
 }
 
+/* ── DIFF VIEW ── */
+.diff-view {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diff-line-add {
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+.diff-line-del {
+  background: rgba(248, 81, 73, 0.1);
+  color: #fca5a1;
+}
+.diff-line-ctx {
+  color: var(--text-muted);
+}
+.diff-toggle {
+  display: inline-flex;
+  gap: 0;
+  margin-left: 12px;
+}
+.diff-toggle button {
+  padding: 2px 10px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  cursor: pointer;
+}
+.diff-toggle button:first-child {
+  border-right: none;
+}
+.diff-toggle button.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ── ACTIVITY FEED ── */
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.activity-type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: center;
+}
+.activity-title {
+  flex: 1;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.activity-title:hover {
+  color: var(--text-accent);
+}
+.activity-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* ── EMPTY STATE ── */
 .empty-state {
   color: var(--text-muted);
@@ -987,7 +1104,8 @@ html, body {
     <div class="header-tabs">
       <button class="header-tab active" data-view="board" onclick="switchView('board')">Board</button>
       <button class="header-tab" data-view="prompts" onclick="switchView('prompts')">Prompts</button>
-      <button class="header-tab" data-view="reports" onclick="switchView('reports')">Reports</button>
+      <button class="header-tab" data-view="documents" onclick="switchView('documents')">Documents</button>
+      <button class="header-tab" data-view="activity" onclick="switchView('activity')">Activity</button>
     </div>
   </div>
   <div class="header-right">
@@ -1022,15 +1140,24 @@ html, body {
   <div class="resource-list" id="prompts-list"></div>
 </div>
 
-<div id="reports-view" class="resource-view">
+<div id="documents-view" class="resource-view">
   <div class="resource-toolbar">
     <div class="resource-toolbar-left">
-      <span class="resource-toolbar-title">Reports</span>
-      <span class="resource-count" id="reports-count">0</span>
+      <span class="resource-toolbar-title">Documents</span>
+      <span class="resource-count" id="documents-count">0</span>
     </div>
-    <button class="btn btn-primary" onclick="openCreateResource('reports')">+ new report</button>
+    <button class="btn btn-primary" onclick="openCreateResource('documents')">+ new document</button>
   </div>
-  <div class="resource-list" id="reports-list"></div>
+  <div class="resource-list" id="documents-list"></div>
+</div>
+
+<div id="activity-view" class="resource-view">
+  <div class="resource-toolbar">
+    <div class="resource-toolbar-left">
+      <span class="resource-toolbar-title">Activity</span>
+    </div>
+  </div>
+  <div class="resource-list" id="activity-list"></div>
 </div>
 
 <!-- Modal -->
@@ -1080,9 +1207,15 @@ html, body {
           <input type="text" id="create-tags" placeholder="comma separated">
         </div>
       </div>
-      <div class="create-field">
+      <div class="create-field" style="flex:1;display:flex;flex-direction:column;min-height:0;">
         <label>Description (markdown)</label>
-        <textarea id="create-desc" placeholder="paste or type markdown content..."></textarea>
+        <div class="editor-split" style="flex:1;min-height:340px;">
+          <textarea id="create-desc" class="create-textarea" style="min-height:100%;" placeholder="paste or type markdown content..." oninput="updatePreview('create-desc','create-desc-preview')"></textarea>
+          <div>
+            <div class="editor-preview-label">preview</div>
+            <div class="editor-preview rendered" id="create-desc-preview"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="create-modal-footer">
@@ -1108,9 +1241,15 @@ html, body {
         <label>Tags</label>
         <input type="text" id="resource-create-tags" placeholder="comma separated">
       </div>
-      <div class="create-field">
+      <div class="create-field" style="flex:1;display:flex;flex-direction:column;min-height:0;">
         <label>Content (markdown)</label>
-        <textarea id="resource-create-body" placeholder="paste or type content..."></textarea>
+        <div class="editor-split" style="flex:1;min-height:340px;">
+          <textarea id="resource-create-body" class="create-textarea" style="min-height:100%;" placeholder="paste or type content..." oninput="updatePreview('resource-create-body','resource-create-preview')"></textarea>
+          <div>
+            <div class="editor-preview-label">preview</div>
+            <div class="editor-preview rendered" id="resource-create-preview"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="create-modal-footer">
@@ -1148,11 +1287,12 @@ let currentTask = null;
 let editMode = false;
 let commentCounts = {};
 let currentView = 'board';
-let resourceData = { prompts: [], reports: [] };
+let resourceData = { prompts: [], documents: [] };
 let currentResource = null;
 let currentResourceType = null;
 let resourceEditMode = false;
 let viewingRevision = null;
+let showRevisionDiff = false;
 
 // ── API ──
 async function api(path, opts = {}) {
@@ -1389,6 +1529,9 @@ async function renderModal() {
   if (m.branch) sideHtml += sidebarField('Branch', `<span style="color:var(--text-accent)">${escHtml(m.branch)}</span>`);
   if (m.completed) sideHtml += sidebarField('Completed', m.completed);
   sideHtml += sidebarField('File', `<span style="color:var(--text-muted);font-size:11px;">${escHtml(currentTask.filename)}</span>`);
+  if (m.related && m.related.length) {
+    sideHtml += sidebarField('Related', renderRelatedLinks(m.related));
+  }
   sidebar.innerHTML = sideHtml;
 
   // Main content
@@ -1397,12 +1540,19 @@ async function renderModal() {
   if (editMode) {
     const raw = buildRawContent(currentTask);
     main.innerHTML = `
-      <textarea class="edit-textarea" id="edit-raw">${escHtml(raw)}</textarea>
+      <div class="editor-split" style="min-height:500px;">
+        <textarea class="edit-textarea" id="edit-raw" oninput="updateEditPreview()">${escHtml(raw)}</textarea>
+        <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+          <div class="editor-preview-label">preview</div>
+          <div class="editor-preview rendered" id="edit-preview" style="flex:1;"></div>
+        </div>
+      </div>
       <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
         <button class="btn" onclick="toggleEditMode()">cancel</button>
         <button class="btn btn-primary" onclick="saveEdit()">save</button>
       </div>
     `;
+    updateEditPreview();
     return;
   }
 
@@ -1690,7 +1840,7 @@ document.addEventListener('keydown', e => {
         const defaultCol = boardData.columns[0].name;
         openCreateModal(defaultCol);
       }
-    } else if (currentView === 'prompts' || currentView === 'reports') {
+    } else if (currentView === 'prompts' || currentView === 'documents') {
       openCreateResource(currentView);
     }
   }
@@ -1714,14 +1864,17 @@ function switchView(name) {
   // Toggle views
   document.getElementById('board-view').style.display = name === 'board' ? '' : 'none';
   const promptsView = document.getElementById('prompts-view');
-  const reportsView = document.getElementById('reports-view');
+  const documentsView = document.getElementById('documents-view');
+  const activityView = document.getElementById('activity-view');
   promptsView.classList.toggle('active', name === 'prompts');
-  reportsView.classList.toggle('active', name === 'reports');
+  documentsView.classList.toggle('active', name === 'documents');
+  activityView.classList.toggle('active', name === 'activity');
   // Update hash
   location.hash = name;
   // Load data
   if (name === 'prompts') loadResources('prompts');
-  else if (name === 'reports') loadResources('reports');
+  else if (name === 'documents') loadResources('documents');
+  else if (name === 'activity') loadActivity();
 }
 
 // ── RESOURCE LIST ──
@@ -1761,12 +1914,73 @@ function renderResourceList(type) {
   }).join('');
 }
 
+// ── ACTIVITY FEED ──
+async function loadActivity() {
+  try {
+    const entries = await api('/api/activity');
+    renderActivity(entries);
+  } catch {
+    document.getElementById('activity-list').innerHTML = '<div class="empty-state">&mdash;</div>';
+  }
+}
+
+function renderActivity(entries) {
+  const list = document.getElementById('activity-list');
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state">&mdash;</div>';
+    return;
+  }
+
+  const typeColors = { task: 'var(--text-accent)', prompt: '#f59e0b', document: '#10b981' };
+
+  list.innerHTML = entries.map(e => {
+    const color = typeColors[e.type] || 'var(--text-muted)';
+    const time = formatRelativeTime(e.mtime);
+    const idStr = e.id != null ? String(e.id).padStart(3, '0') : '';
+    const label = e.type + (idStr ? ':' + idStr : '');
+
+    let onclick = '';
+    if (e.type === 'task' && e.column && e.filename) {
+      onclick = `onclick="openActivityTask('${escAttr(e.column)}','${escAttr(e.filename)}')"`;
+    } else if (e.type === 'prompt' && e.dir_name) {
+      onclick = `onclick="openResource('prompts','${escAttr(e.dir_name)}')"`;
+    } else if (e.type === 'document' && e.dir_name) {
+      onclick = `onclick="openResource('documents','${escAttr(e.dir_name)}')"`;
+    }
+
+    return `<div class="activity-item">
+      <span class="activity-type" style="color:${color};border-color:${color}30;">${escHtml(label)}</span>
+      <span class="activity-title" ${onclick}>${escHtml(e.title)}</span>
+      <span class="activity-time">${escHtml(time)}</span>
+    </div>`;
+  }).join('');
+}
+
+async function openActivityTask(column, filename) {
+  try {
+    const task = await api(`/api/task/${column}/${filename}`);
+    task.column = column;
+    openModal(task);
+  } catch {}
+}
+
+function formatRelativeTime(mtime) {
+  const now = Date.now() / 1000;
+  const diff = now - mtime;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  const d = new Date(mtime * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
 // ── RESOURCE CREATE ──
 let createResourceType = null;
 
 function openCreateResource(type) {
   createResourceType = type;
-  const label = type === 'prompts' ? 'Prompt' : 'Report';
+  const label = type === 'prompts' ? 'Prompt' : 'Document';
   document.getElementById('resource-create-title').textContent = `New ${label}`;
   document.getElementById('resource-create-name').value = '';
   document.getElementById('resource-create-tags').value = '';
@@ -1819,13 +2033,14 @@ function closeResourceModal() {
   currentResourceType = null;
   resourceEditMode = false;
   viewingRevision = null;
+  showRevisionDiff = false;
 }
 
 async function renderResourceModal() {
   if (!currentResource) return;
   const m = currentResource.meta;
   const body = currentResource.body || '';
-  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'report';
+  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'document';
 
   document.getElementById('resource-modal-title').textContent = m.title || currentResource.dir_name;
   document.getElementById('resource-modal-type-badge').textContent = typeLabel;
@@ -1840,6 +2055,9 @@ async function renderResourceModal() {
   sideHtml += sidebarField('Revision', m.revision || 1);
   sideHtml += sidebarField('Tags', (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
   sideHtml += sidebarField('Directory', `<span style="color:var(--text-muted);font-size:11px;">${escHtml(currentResource.dir_name)}</span>`);
+  if (m.related && m.related.length) {
+    sideHtml += sidebarField('Related', renderRelatedLinks(m.related));
+  }
   sidebar.innerHTML = sideHtml;
 
   // Main content
@@ -1847,12 +2065,19 @@ async function renderResourceModal() {
 
   if (resourceEditMode) {
     main.innerHTML = `
-      <textarea class="edit-textarea" id="resource-edit-body">${escHtml(body)}</textarea>
+      <div class="editor-split" style="min-height:500px;">
+        <textarea class="edit-textarea" id="resource-edit-body" oninput="updateResourceEditPreview()">${escHtml(body)}</textarea>
+        <div style="display:flex;flex-direction:column;flex:1;min-width:0;">
+          <div class="editor-preview-label">preview</div>
+          <div class="editor-preview rendered" id="resource-edit-preview" style="flex:1;"></div>
+        </div>
+      </div>
       <div style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
         <button class="btn" onclick="toggleResourceEdit()">cancel</button>
         <button class="btn btn-primary" onclick="saveResourceEdit()">save</button>
       </div>
     `;
+    updateResourceEditPreview();
     return;
   }
 
@@ -1861,11 +2086,15 @@ async function renderResourceModal() {
   let revisionNote = '';
   if (viewingRevision) {
     displayBody = viewingRevision.body || '';
-    revisionNote = `<div style="margin-bottom:12px;padding:8px 12px;border:1px solid rgba(124,138,255,0.3);background:rgba(124,138,255,0.05);font-size:12px;color:var(--text-accent);">Viewing revision ${viewingRevision.meta.revision} &mdash; <a href="#" style="color:var(--text-accent);text-decoration:underline;" onclick="viewingRevision=null;renderResourceModal();return false;">back to current</a></div>`;
+    revisionNote = `<div style="margin-bottom:12px;padding:8px 12px;border:1px solid rgba(124,138,255,0.3);background:rgba(124,138,255,0.05);font-size:12px;color:var(--text-accent);display:flex;align-items:center;flex-wrap:wrap;">Viewing revision ${viewingRevision.meta.revision} &mdash; <a href="#" style="color:var(--text-accent);text-decoration:underline;margin-left:4px;" onclick="viewingRevision=null;showRevisionDiff=false;renderResourceModal();return false;">back to current</a><span class="diff-toggle" style="margin-left:auto;"><button class="${!showRevisionDiff ? 'active' : ''}" onclick="showRevisionDiff=false;renderResourceModal();">content</button><button class="${showRevisionDiff ? 'active' : ''}" onclick="showRevisionDiff=true;renderResourceModal();">diff</button></span></div>`;
   }
 
   let html = revisionNote;
-  html += `<div class="rendered">${renderMarkdown(displayBody)}</div>`;
+  if (viewingRevision && showRevisionDiff) {
+    html += `<div class="diff-view">${computeDiff(displayBody, body)}</div>`;
+  } else {
+    html += `<div class="rendered">${renderMarkdown(displayBody)}</div>`;
+  }
 
   // Revisions panel
   html += `<div class="resource-modal-revisions">`;
@@ -1940,7 +2169,7 @@ async function saveResourceEdit() {
 
 async function deleteCurrentResource() {
   if (!currentResource || !currentResourceType) return;
-  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'report';
+  const typeLabel = currentResourceType === 'prompts' ? 'prompt' : 'document';
   if (!confirm(`Delete ${typeLabel} "${currentResource.meta.title}"?`)) return;
   await api(`/api/${currentResourceType}/${currentResource.dir_name}`, { method: 'DELETE' });
   closeResourceModal();
@@ -1951,11 +2180,122 @@ document.getElementById('resource-modal-backdrop').addEventListener('click', e =
   if (e.target === e.currentTarget) closeResourceModal();
 });
 
+// ── CROSS-LINKING ──
+function renderRelatedLinks(related) {
+  if (!related || !related.length) return '';
+  return related.map(ref => {
+    const r = String(ref).trim();
+    const m = r.match(/^(task|prompt|document):(\d+)/i);
+    if (!m) return `<span style="font-size:11px;color:var(--text-muted);">${escHtml(r)}</span>`;
+    const type = m[1].toLowerCase();
+    const id = m[2];
+    const padded = id.padStart(3, '0');
+    const color = type === 'task' ? 'var(--text-accent)' : type === 'prompt' ? '#f59e0b' : '#10b981';
+    return `<a href="#" onclick="navigateToRelated('${type}','${padded}');return false;" style="display:inline-block;font-size:11px;color:${color};margin-right:6px;text-decoration:none;border-bottom:1px dotted ${color};">${type}:${padded}</a>`;
+  }).join('');
+}
+
+async function navigateToRelated(type, paddedId) {
+  if (type === 'task') {
+    // Find task across all columns
+    if (!boardData) await loadBoard();
+    for (const col of boardData.columns) {
+      const task = col.tasks.find(t => {
+        const tid = String(t.meta.id).padStart(3, '0');
+        return tid === paddedId;
+      });
+      if (task) {
+        closeModal();
+        closeResourceModal();
+        setTimeout(() => openModal(task), 100);
+        return;
+      }
+    }
+  } else {
+    const apiType = type === 'prompt' ? 'prompts' : 'documents';
+    // Find resource by padded id prefix in dir_name
+    try {
+      const resources = await api(`/api/${apiType}`);
+      const res = resources.find(r => r.dir_name.startsWith(paddedId + '-'));
+      if (res) {
+        closeModal();
+        closeResourceModal();
+        setTimeout(() => openResource(apiType, res.dir_name), 100);
+        return;
+      }
+    } catch {}
+  }
+}
+
+// ── DIFF ──
+function computeDiff(oldText, newText) {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+
+  // Simple LCS diff
+  const m = oldLines.length, n = newLines.length;
+  // Build LCS table (space-optimized for small docs)
+  const dp = Array.from({length: m + 1}, () => new Uint16Array(n + 1));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = oldLines[i-1] === newLines[j-1]
+        ? dp[i-1][j-1] + 1
+        : Math.max(dp[i-1][j], dp[i][j-1]);
+    }
+  }
+
+  // Backtrack to produce diff
+  const result = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i-1] === newLines[j-1]) {
+      result.push({type: 'ctx', line: oldLines[i-1]});
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      result.push({type: 'add', line: newLines[j-1]});
+      j--;
+    } else {
+      result.push({type: 'del', line: oldLines[i-1]});
+      i--;
+    }
+  }
+  result.reverse();
+
+  return result.map(r => {
+    const prefix = r.type === 'add' ? '+' : r.type === 'del' ? '-' : ' ';
+    const cls = r.type === 'add' ? 'diff-line-add' : r.type === 'del' ? 'diff-line-del' : 'diff-line-ctx';
+    return `<div class="${cls}">${prefix} ${escHtml(r.line)}</div>`;
+  }).join('');
+}
+
+// ── PREVIEW HELPERS ──
+function updatePreview(textareaId, previewId) {
+  const el = document.getElementById(previewId);
+  const ta = document.getElementById(textareaId);
+  if (el && ta) el.innerHTML = renderMarkdown(ta.value);
+}
+
+function updateEditPreview() {
+  const ta = document.getElementById('edit-raw');
+  const el = document.getElementById('edit-preview');
+  if (!ta || !el) return;
+  // Strip frontmatter for preview
+  const raw = ta.value;
+  const bodyOnly = raw.replace(/^---[\s\S]*?---\n?/, '');
+  el.innerHTML = renderMarkdown(bodyOnly);
+}
+
+function updateResourceEditPreview() {
+  const ta = document.getElementById('resource-edit-body');
+  const el = document.getElementById('resource-edit-preview');
+  if (ta && el) el.innerHTML = renderMarkdown(ta.value);
+}
+
 // ── INIT ──
 // Hash-based routing
 function initFromHash() {
   const hash = location.hash.replace('#', '');
-  if (['board', 'prompts', 'reports'].includes(hash)) {
+  if (['board', 'prompts', 'documents', 'activity'].includes(hash)) {
     switchView(hash);
   } else {
     switchView('board');
@@ -1965,6 +2305,36 @@ window.addEventListener('hashchange', initFromHash);
 
 loadBoard();
 initFromHash();
+
+// ── AUTO-REFRESH POLLING ──
+let lastHashes = { board: null, prompts: null, documents: null };
+async function pollForChanges() {
+  try {
+    const hashes = await api('/api/poll');
+    if (lastHashes.board && hashes.board !== lastHashes.board) {
+      loadBoard();
+    }
+    if (lastHashes.prompts && hashes.prompts !== lastHashes.prompts && currentView === 'prompts') {
+      loadResources('prompts');
+    }
+    if (lastHashes.documents && hashes.documents !== lastHashes.documents && currentView === 'documents') {
+      loadResources('documents');
+    }
+    // Refresh activity if any hash changed
+    const anyChanged = lastHashes.board && (
+      hashes.board !== lastHashes.board ||
+      hashes.prompts !== lastHashes.prompts ||
+      hashes.documents !== lastHashes.documents
+    );
+    if (anyChanged && currentView === 'activity') {
+      loadActivity();
+    }
+    lastHashes = hashes;
+  } catch {}
+}
+// Initial hash fetch
+pollForChanges();
+setInterval(pollForChanges, 3000);
 </script>
 </body>
 </html>

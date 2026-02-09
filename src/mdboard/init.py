@@ -95,7 +95,7 @@ def run_init() -> None:
             created.append(f"tasks/{col}/")
 
     # Create prompts/ and reports/ directories
-    for resource_dir in ("prompts", "reports"):
+    for resource_dir in ("prompts", "documents"):
         rdir = root / resource_dir
         if rdir.exists():
             skipped.append(f"{resource_dir}/")

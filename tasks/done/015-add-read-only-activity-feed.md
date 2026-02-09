@@ -1,9 +1,10 @@
 ---
 id: 15
 title: Add read-only activity feed
-assignee: ""
+assignee: claude
 tags: [frontend, ux]
 created: 2026-02-09
+completed: 2026-02-09
 ---
 
 ## Description
@@ -18,3 +19,8 @@ Could be implemented as:
 
 
 ## Notes
+- Added "Activity" as a 4th tab with hash routing `#activity`
+- Backend: `/api/activity` collects files from all stores with mtimes, returns sorted (newest first), limit 50
+- Frontend: renders type-colored badges (task=indigo, prompt=amber, document=green), clickable titles, relative timestamps
+- Clicking an entry opens the appropriate modal
+- Auto-refreshes via existing poll mechanism when any hash changes

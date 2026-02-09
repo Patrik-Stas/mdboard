@@ -1,9 +1,10 @@
 ---
 id: 17
 title: Add markdown preview in create and edit modals
-assignee: ""
+assignee: claude
 tags: [frontend, ux, editor]
 created: 2026-02-09
+completed: 2026-02-09
 ---
 
 ## Description
@@ -18,3 +19,7 @@ The markdown renderer already exists (`renderMarkdown()`), so this is primarily 
 
 
 ## Notes
+- Added side-by-side split layout: textarea left, rendered preview right
+- Applied to all 4 edit contexts: task create, task edit, resource create, resource edit
+- Task edit strips frontmatter from preview (shows only body)
+- Preview updates on every input event via `renderMarkdown()`

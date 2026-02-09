@@ -1,9 +1,10 @@
 ---
 id: 14
 title: Replace revision snapshots with git log view
-assignee: ""
-tags: [backend, frontend, git]
+assignee: claude
+tags: [backend, frontend, diff]
 created: 2026-02-09
+completed: 2026-02-09
 ---
 
 ## Description
@@ -20,3 +21,8 @@ Alternative: keep snapshots but add a diff view between consecutive revisions.
 
 
 ## Notes
+- Chose the "alternative" approach: kept snapshot system, added diff view
+- When viewing a revision, a content/diff toggle appears in the banner
+- Diff uses LCS algorithm implemented in JS (no deps), shows +/- lines with color coding
+- Compares revision body against current body
+- Green = added in current, red = removed from revision

@@ -4,9 +4,11 @@ title: mdboard Evaluation: LLM Workflow Fit
 tags: [evaluation, llm-workflows, meta]
 created: 2026-02-09
 updated: 2026-02-09
-revision: 1
+revision: 2
 ---
 ## Executive Summary
+
+
 
 mdboard is a zero-dependency, file-based project management tool that stores tasks as markdown files on disk. This report evaluates its strengths, weaknesses, and — most critically — whether it actually makes sense as infrastructure for LLM-driven workflows.
 
@@ -108,3 +110,4 @@ The first use case is where the real value lives. The web UI should be optimized
 4. **Add a read-only "activity feed"** — show recent file changes across tasks/prompts/reports as a timeline
 5. **Rename "Reports" to "Documents"** — sets more accurate expectations
 6. **Add markdown preview in create/edit modals** — side-by-side editing
+

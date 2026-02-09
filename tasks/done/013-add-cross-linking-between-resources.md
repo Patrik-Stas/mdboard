@@ -1,9 +1,10 @@
 ---
 id: 13
 title: Add cross-linking between resources
-assignee: ""
+assignee: claude
 tags: [backend, frontend, linking]
 created: 2026-02-09
+completed: 2026-02-09
 ---
 
 ## Description
@@ -20,3 +21,8 @@ The UI should render these as clickable links in the sidebar. The backend should
 
 
 ## Notes
+- Supports `related: [prompt:001, task:003, document:002]` in frontmatter
+- Frontend renders as color-coded clickable links in sidebar (tasks=accent, prompts=amber, documents=green)
+- Clicking navigates to the referenced resource (closes current modal, opens target)
+- Added `related` to `build_frontmatter()` key order
+- Backend parses the list via existing YAML parser — no special validation needed
