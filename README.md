@@ -4,6 +4,8 @@ A lightweight kanban board where every task is a `.md` file in your repo.
 
 Built for solo developers and AI-assisted workflows. No database, no SaaS, no dependencies -- just markdown files that live alongside your code.
 
+![mdboard](media/app.png)
+
 ## Why not a cloud board?
 
 Cloud project management tools are built for teams coordinating across time zones on work that stretches over days and weeks. But when it's you and your AI agents on one machine, shipping tasks that take minutes to hours, a cloud subscription is overhead. You're paying for collaboration features you don't use, managing another account per project, and context-switching to a browser tab that's disconnected from the code you're actually working on.
