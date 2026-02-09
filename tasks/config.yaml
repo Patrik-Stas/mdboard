@@ -1,18 +1,18 @@
 columns:
   - name: backlog
-    label: "📋 Backlog"
+    label: "Backlog"
     color: "#6b7280"
   - name: todo
-    label: "📌 To Do"
+    label: "To Do"
     color: "#3b82f6"
   - name: in-progress
-    label: "🔨 In Progress"
+    label: "In Progress"
     color: "#f59e0b"
   - name: review
-    label: "👀 Review"
+    label: "Review"
     color: "#8b5cf6"
   - name: done
-    label: "✅ Done"
+    label: "Done"
     color: "#10b981"
 
 settings:
