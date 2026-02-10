@@ -1777,8 +1777,12 @@ function renderMarkdown(md) {
   // Unordered list items
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
 
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // Ordered list items
+  html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
+
+  // Wrap consecutive <li> in <ul>, <oli> in <ol>
+  html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, m => '<ul>' + m.trim() + '</ul>');
+  html = html.replace(/((?:<oli>.*<\/oli>\n?)+)/g, m => '<ol>' + m.trim().replace(/<\/?oli>/g, s => s.replace('oli', 'li')) + '</ol>');
 
   // Bold / italic
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -1786,6 +1790,33 @@ function renderMarkdown(md) {
 
   // Links
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  // Tables
+  html = html.replace(/((?:^\|.+\|[ \t]*(?:\n|$))+)/gm, (block) => {
+    const rows = block.trim().split('\n');
+    if (rows.length < 2) return block;
+    const parseRow = r => r.replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+    const headers = parseRow(rows[0]);
+    // Check row 1 is a separator (dashes, colons, spaces, pipes)
+    if (!/^\|[\s:|-]+\|$/.test(rows[1])) return block;
+    const sepCells = parseRow(rows[1]);
+    const aligns = sepCells.map(c => {
+      if (/^:-+:$/.test(c)) return 'center';
+      if (/^-+:$/.test(c)) return 'right';
+      return 'left';
+    });
+    let t = '<table><thead><tr>';
+    headers.forEach((h, i) => { t += `<th style="text-align:${aligns[i] || 'left'}">${h}</th>`; });
+    t += '</tr></thead><tbody>';
+    for (let r = 2; r < rows.length; r++) {
+      const cells = parseRow(rows[r]);
+      t += '<tr>';
+      cells.forEach((c, i) => { t += `<td style="text-align:${aligns[i] || 'left'}">${c}</td>`; });
+      t += '</tr>';
+    }
+    t += '</tbody></table>';
+    return t;
+  });
 
   // HTML comments
   html = html.replace(/<!--[\s\S]*?-->/g, '');

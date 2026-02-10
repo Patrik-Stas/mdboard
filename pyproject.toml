@@ -1,6 +1,6 @@
 [project]
 name = "mdboard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Markdown task board for your repo"
 readme = "README.md"
 requires-python = ">=3.12"
