@@ -1,5 +1,8 @@
-"""mdboard init — scaffold a tasks/ directory in the current project."""
+"""mdboard init — scaffold .mdboard/ directory in the current project."""
 
+from __future__ import annotations
+
+import shutil
 from pathlib import Path
 
 DEFAULT_CONFIG = """\
@@ -39,9 +42,9 @@ This project uses mdboard — a markdown-based project management tool with task
 
 ### Tasks
 
-Tasks live in `tasks/{column}/{id:03d}-{slug}.md` as markdown files with YAML frontmatter.
+Tasks live in `.mdboard/tasks/{column}/{id:03d}-{slug}.md` as markdown files with YAML frontmatter.
 
-Columns: `backlog/` → `todo/` → `in-progress/` → `review/` → `done/` (defined in `tasks/config.yaml`).
+Columns: `backlog/` → `todo/` → `in-progress/` → `review/` → `done/` (defined in `.mdboard/tasks/config.yaml`).
 
 Task file format:
 ```
@@ -69,21 +72,21 @@ completed: YYYY-MM-DD    # set when moving to done
 Filenames are zero-padded: `001-slug.md`, `002-slug.md`. IDs auto-increment across all columns.
 
 #### Task workflow
-1. Scan `tasks/backlog/`, `tasks/todo/`, and `tasks/in-progress/` for tasks where `assignee: claude`
+1. Scan `.mdboard/tasks/backlog/`, `.mdboard/tasks/todo/`, and `.mdboard/tasks/in-progress/` for tasks where `assignee: claude`
 2. If a task has `branch: X`, only pick it up when on that branch
-3. Move task to in-progress: `mv tasks/todo/XXX.md tasks/in-progress/`
+3. Move task to in-progress: `mv .mdboard/tasks/todo/XXX.md .mdboard/tasks/in-progress/`
 4. Work on it — check off `- [ ]` items in Acceptance Criteria as you go
 5. Append notes under `## Notes` with what you did and decisions made
-6. When complete: add `completed: YYYY-MM-DD` to frontmatter, then `mv tasks/in-progress/XXX.md tasks/done/`
-7. If you discover bugs or new work, create task files in `tasks/backlog/`
+6. When complete: add `completed: YYYY-MM-DD` to frontmatter, then `mv .mdboard/tasks/in-progress/XXX.md .mdboard/tasks/done/`
+7. If you discover bugs or new work, create task files in `.mdboard/tasks/backlog/`
 8. Commit task file changes alongside code changes
 
 ### Prompts & Documents
 
 Prompts and documents are revision-tracked markdown resources for storing reusable prompts, reports, specs, and other project knowledge.
 
-- **Prompts**: `prompts/{id:03d}-{slug}/current.md` — reusable prompt templates
-- **Documents**: `documents/{id:03d}-{slug}/current.md` — reports, specs, research, decisions
+- **Prompts**: `.mdboard/prompts/{id:03d}-{slug}/current.md` — reusable prompt templates
+- **Documents**: `.mdboard/documents/{id:03d}-{slug}/current.md` — reports, specs, research, decisions
 
 Each resource is a directory containing `current.md` (the latest version) and a `revisions/` subdirectory with numbered snapshots (`001.md`, `002.md`, etc.) created automatically on each edit.
 
@@ -103,7 +106,7 @@ tags: [{tags}]
 
 #### Creating a prompt or document
 1. Pick the next available ID in the directory (check existing `{id:03d}-*` folders)
-2. Create the directory: `prompts/{id:03d}-{slug}/` or `documents/{id:03d}-{slug}/`
+2. Create the directory: `.mdboard/prompts/{id:03d}-{slug}/` or `.mdboard/documents/{id:03d}-{slug}/`
 3. Write `current.md` with frontmatter (revision: 1) and body content
 4. Create `revisions/001.md` as the initial snapshot (same content as current.md)
 
@@ -113,38 +116,67 @@ tags: [{tags}]
 """
 
 
+def migrate_legacy_dirs(root: Path) -> bool:
+    """Migrate legacy top-level tasks/, prompts/, documents/ into .mdboard/.
+
+    Returns True if any migration occurred.
+    """
+    data_dir = root / ".mdboard"
+    migrated = []
+
+    for name in ("tasks", "prompts", "documents"):
+        legacy = root / name
+        target = data_dir / name
+        if not legacy.is_dir():
+            continue
+        if target.exists():
+            print(f"  Warning: both {name}/ and .mdboard/{name}/ exist — skipping {name}/")
+            continue
+        data_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(legacy), str(target))
+        migrated.append(name)
+
+    if migrated:
+        print(f"  Migrated to .mdboard/: {', '.join(migrated)}")
+    return bool(migrated)
+
+
 def run_init() -> None:
-    """Scaffold a tasks/ directory and Claude Code skill in the current project."""
+    """Scaffold a .mdboard/ directory and Claude Code skill in the current project."""
     root = Path.cwd()
+
+    # Migrate old layout if present
+    migrate_legacy_dirs(root)
+
     created = []
     skipped = []
 
-    # Create tasks/ and column subdirectories
+    # Create .mdboard/tasks/ and column subdirectories
     for col in COLUMNS:
-        col_dir = root / "tasks" / col
+        col_dir = root / ".mdboard" / "tasks" / col
         if col_dir.exists():
-            skipped.append(f"tasks/{col}/")
+            skipped.append(f".mdboard/tasks/{col}/")
         else:
             col_dir.mkdir(parents=True, exist_ok=True)
-            created.append(f"tasks/{col}/")
+            created.append(f".mdboard/tasks/{col}/")
 
-    # Create prompts/ and reports/ directories
+    # Create .mdboard/prompts/ and .mdboard/documents/ directories
     for resource_dir in ("prompts", "documents"):
-        rdir = root / resource_dir
+        rdir = root / ".mdboard" / resource_dir
         if rdir.exists():
-            skipped.append(f"{resource_dir}/")
+            skipped.append(f".mdboard/{resource_dir}/")
         else:
             rdir.mkdir(parents=True, exist_ok=True)
-            created.append(f"{resource_dir}/")
+            created.append(f".mdboard/{resource_dir}/")
 
-    # Create tasks/config.yaml
-    config_path = root / "tasks" / "config.yaml"
+    # Create .mdboard/tasks/config.yaml
+    config_path = root / ".mdboard" / "tasks" / "config.yaml"
     if config_path.exists():
-        skipped.append("tasks/config.yaml")
+        skipped.append(".mdboard/tasks/config.yaml")
     else:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(DEFAULT_CONFIG)
-        created.append("tasks/config.yaml")
+        created.append(".mdboard/tasks/config.yaml")
 
     # Create .claude/skills/mdboard/SKILL.md
     skill_path = root / ".claude" / "skills" / "mdboard" / "SKILL.md"

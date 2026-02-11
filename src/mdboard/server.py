@@ -804,9 +804,14 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 # Main
 # ---------------------------------------------------------------------------
 
-def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
+def run_server(port: int = 8080, data_dir: str = ".mdboard") -> None:
     """Start the HTTP server."""
-    tasks_path = Path(tasks_dir).resolve()
+    data_path = Path(data_dir).resolve()
+    tasks_path = data_path / "tasks"
+
+    # Migrate legacy layout (tasks/, prompts/, documents/ at project root)
+    from mdboard.init import migrate_legacy_dirs
+    migrate_legacy_dirs(data_path.parent)
 
     # Auto-scaffold on first run
     if not tasks_path.exists():
@@ -816,11 +821,10 @@ def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
     html_path = files("mdboard").joinpath("_assets", "index.html")
 
     board = Board(str(tasks_path))
-    project_root = tasks_path.parent
 
     BoardHandler.board = board
-    BoardHandler.prompts = ResourceStore(project_root, "prompts")
-    BoardHandler.documents = ResourceStore(project_root, "documents")
+    BoardHandler.prompts = ResourceStore(data_path, "prompts")
+    BoardHandler.documents = ResourceStore(data_path, "documents")
     BoardHandler.html_path = html_path
 
     # Allow port reuse
@@ -833,7 +837,7 @@ def run_server(port: int = 8080, tasks_dir: str = "tasks") -> None:
         print(f"  mdboard")
         print(f"  ─────────────────────────────────")
         print(f"  URL:      http://localhost:{port}")
-        print(f"  Tasks:    {tasks_path}")
+        print(f"  Data:     {data_path}")
         print(f"  Columns:  {col_count}    Tasks: {task_count}")
         print(f"  ─────────────────────────────────")
         print(f"")
@@ -847,6 +851,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="mdboard server")
     parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--tasks-dir", default="tasks")
+    parser.add_argument("--dir", default=".mdboard")
     args = parser.parse_args()
-    run_server(port=args.port, tasks_dir=args.tasks_dir)
+    run_server(port=args.port, data_dir=args.dir)
