@@ -22,3 +22,8 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# mdboard local data
+documents/
+tasks/
+prompts/
