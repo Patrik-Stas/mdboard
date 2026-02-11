@@ -14,6 +14,7 @@ import re
 import shutil
 import socketserver
 from datetime import date, datetime
+from importlib.metadata import version as pkg_version
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import unquote
@@ -601,6 +602,13 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/config" and method == "GET":
             return self._send_json(self.board.config)
+
+        if path == "/api/version" and method == "GET":
+            try:
+                v = pkg_version("mdboard")
+            except Exception:
+                v = "dev"
+            return self._send_json({"version": v})
 
         if path == "/api/task" and method == "POST":
             data = self._read_body()
