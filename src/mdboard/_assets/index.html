@@ -1173,7 +1173,7 @@ html, body {
 
 <div class="header">
   <div class="header-left">
-    <div class="logo">mdboard<span>/</span><span class="version" id="app-version"></span></div>
+    <div class="logo"><span id="project-name">mdboard</span><span>/</span><span class="version" id="app-version"></span></div>
     <div class="header-tabs">
       <button class="header-tab active" data-view="board" onclick="switchView('board')">Board</button>
       <button class="header-tab" data-view="prompts" onclick="switchView('prompts')">Prompts</button>
@@ -2441,7 +2441,13 @@ window.addEventListener('hashchange', initFromHash);
 
 loadBoard();
 initFromHash();
-api('/api/version').then(d => { document.getElementById('app-version').textContent = d.version; }).catch(() => {});
+api('/api/version').then(d => {
+  document.getElementById('app-version').textContent = d.version;
+  if (d.project) {
+    document.getElementById('project-name').textContent = d.project;
+    document.title = d.project + ' — mdboard';
+  }
+}).catch(() => {});
 
 // ── AUTO-REFRESH POLLING ──
 let lastHashes = { board: null, prompts: null, documents: null };

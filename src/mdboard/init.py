@@ -38,7 +38,49 @@ description: Operate the markdown task board. Use at session start to scan for a
 
 ## mdboard
 
-This project uses mdboard — a markdown-based project management tool with tasks, prompts, and documents. Run `uvx mdboard` to view the web UI.
+This project uses mdboard — a markdown-based project management tool. Run `uvx mdboard` to view the web UI.
+
+### Directory Structure
+
+ALL mdboard data lives under `.mdboard/` in the project root. Nothing else. Here is the complete layout:
+
+```
+.mdboard/
+├── port.json                          # runtime: {"port": N, "pid": P} — written by server
+├── tasks/                             # TASKS — kanban board
+│   ├── config.yaml                    # column definitions, board settings
+│   ├── backlog/                       # column directories (one per column)
+│   │   └── 001-my-task.md             # task files
+│   ├── todo/
+│   ├── in-progress/
+│   ├── review/
+│   ├── done/
+│   └── comments/                      # task comments
+│       └── {task_id}/                  # one dir per task
+│           └── 20260210-143000-author.md
+├── prompts/                           # PROMPTS — reusable templates
+│   └── 001-my-prompt/                 # one dir per prompt
+│       ├── current.md                 # latest version
+│       └── revisions/                 # auto-created on each edit
+│           ├── 001.md
+│           └── 002.md
+└── documents/                         # DOCUMENTS — reports, specs, research
+    └── 001-my-doc/                    # one dir per document
+        ├── current.md                 # latest version
+        └── revisions/
+            ├── 001.md
+            └── 002.md
+```
+
+Key facts:
+- `config.yaml` lives inside `.mdboard/tasks/`, NOT at `.mdboard/` root
+- Prompts and documents are siblings of `tasks/` — all three are direct children of `.mdboard/`
+- There is NO `documents/` or `prompts/` directory inside `tasks/` — they are separate
+- `port.json` is the only file at the `.mdboard/` root level (auto-generated, not committed)
+
+### Port Discovery
+
+The server auto-assigns a port (range 10600-10700) and writes `.mdboard/port.json` on startup. To find the running instance: `cat .mdboard/port.json` → `{"port": N, "pid": P}`.
 
 ### Tasks
 
@@ -83,7 +125,7 @@ Filenames are zero-padded: `001-slug.md`, `002-slug.md`. IDs auto-increment acro
 
 ### Prompts & Documents
 
-Prompts and documents are revision-tracked markdown resources for storing reusable prompts, reports, specs, and other project knowledge.
+Prompts and documents are revision-tracked markdown resources stored as siblings of `tasks/` under `.mdboard/`.
 
 - **Prompts**: `.mdboard/prompts/{id:03d}-{slug}/current.md` — reusable prompt templates
 - **Documents**: `.mdboard/documents/{id:03d}-{slug}/current.md` — reports, specs, research, decisions
@@ -178,14 +220,16 @@ def run_init() -> None:
         config_path.write_text(DEFAULT_CONFIG)
         created.append(".mdboard/tasks/config.yaml")
 
-    # Create .claude/skills/mdboard/SKILL.md
+    # Write .claude/skills/mdboard/SKILL.md — always update to latest
     skill_path = root / ".claude" / "skills" / "mdboard" / "SKILL.md"
-    if skill_path.exists():
+    skill_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_skill = skill_path.read_text() if skill_path.exists() else ""
+    if existing_skill == DEFAULT_SKILL:
         skipped.append(".claude/skills/mdboard/SKILL.md")
     else:
-        skill_path.parent.mkdir(parents=True, exist_ok=True)
         skill_path.write_text(DEFAULT_SKILL)
-        created.append(".claude/skills/mdboard/SKILL.md")
+        label = "~ .claude/skills/mdboard/SKILL.md" if existing_skill else ".claude/skills/mdboard/SKILL.md"
+        created.append(label)
 
     # Print summary
     if created:

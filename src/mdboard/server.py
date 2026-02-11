@@ -6,18 +6,24 @@ Reads/writes tasks/ directory: directories = columns, .md files = tasks.
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import http.server
 import json
 import os
 import re
 import shutil
+import signal
+import socket
 import socketserver
 from datetime import date, datetime
 from importlib.metadata import version as pkg_version
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import unquote
+
+PORT_RANGE = (10600, 10700)
+PORT_FILE = "port.json"
 
 
 # ---------------------------------------------------------------------------
@@ -548,6 +554,7 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
     prompts: ResourceStore
     documents: ResourceStore
     html_path: object  # Path or importlib.resources Traversable
+    project_name: str
 
     def log_message(self, fmt, *args):
         # Quieter logging
@@ -608,7 +615,7 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
                 v = pkg_version("mdboard")
             except Exception:
                 v = "dev"
-            return self._send_json({"version": v})
+            return self._send_json({"version": v, "project": self.project_name})
 
         if path == "/api/task" and method == "POST":
             data = self._read_body()
@@ -801,10 +808,71 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
 
 
 # ---------------------------------------------------------------------------
+# Port management
+# ---------------------------------------------------------------------------
+
+def _pid_alive(pid: int) -> bool:
+    """Check whether a process with the given PID is running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _port_available(port: int) -> bool:
+    """Check whether a TCP port is available to bind."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("", port))
+            return True
+        except OSError:
+            return False
+
+
+def read_port_file(data_path: Path) -> dict | None:
+    """Read and validate the port file. Returns info dict or None if stale/missing."""
+    pf = data_path / PORT_FILE
+    if not pf.exists():
+        return None
+    try:
+        info = json.loads(pf.read_text())
+        if _pid_alive(info["pid"]):
+            return info
+        # Stale — process died without cleanup
+        pf.unlink(missing_ok=True)
+    except (json.JSONDecodeError, KeyError):
+        pf.unlink(missing_ok=True)
+    return None
+
+
+def find_available_port(data_path: Path) -> int:
+    """Find an available port in PORT_RANGE, cleaning up stale port files."""
+    lo, hi = PORT_RANGE
+    for port in range(lo, hi + 1):
+        if _port_available(port):
+            return port
+    raise RuntimeError(f"No available port in range {lo}-{hi}")
+
+
+def write_port_file(data_path: Path, port: int) -> None:
+    """Write port.json with current port and PID."""
+    data_path.mkdir(parents=True, exist_ok=True)
+    info = {"port": port, "pid": os.getpid()}
+    (data_path / PORT_FILE).write_text(json.dumps(info))
+
+
+def cleanup_port_file(data_path: Path) -> None:
+    """Remove port.json on shutdown."""
+    pf = data_path / PORT_FILE
+    pf.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
-def run_server(port: int = 8080, data_dir: str = ".mdboard") -> None:
+def run_server(port: int = 0, data_dir: str = ".mdboard") -> None:
     """Start the HTTP server."""
     data_path = Path(data_dir).resolve()
     tasks_path = data_path / "tasks"
@@ -818,6 +886,14 @@ def run_server(port: int = 8080, data_dir: str = ".mdboard") -> None:
         from mdboard.init import run_init
         run_init()
 
+    # Port selection: explicit --port wins, otherwise auto-assign
+    if port == 0:
+        existing = read_port_file(data_path)
+        if existing:
+            print(f"  mdboard already running on port {existing['port']} (pid {existing['pid']})")
+            return
+        port = find_available_port(data_path)
+
     html_path = files("mdboard").joinpath("_assets", "index.html")
 
     board = Board(str(tasks_path))
@@ -826,11 +902,26 @@ def run_server(port: int = 8080, data_dir: str = ".mdboard") -> None:
     BoardHandler.prompts = ResourceStore(data_path, "prompts")
     BoardHandler.documents = ResourceStore(data_path, "documents")
     BoardHandler.html_path = html_path
+    BoardHandler.project_name = data_path.parent.name
 
     # Allow port reuse
     socketserver.TCPServer.allow_reuse_address = True
 
     with socketserver.TCPServer(("", port), BoardHandler) as httpd:
+        # Write port file and register cleanup
+        write_port_file(data_path, port)
+        atexit.register(cleanup_port_file, data_path)
+        try:
+            original_sigterm = signal.getsignal(signal.SIGTERM)
+            def _sigterm_handler(signum, frame):
+                cleanup_port_file(data_path)
+                if callable(original_sigterm) and original_sigterm not in (signal.SIG_DFL, signal.SIG_IGN):
+                    original_sigterm(signum, frame)
+                raise SystemExit(0)
+            signal.signal(signal.SIGTERM, _sigterm_handler)
+        except ValueError:
+            pass  # Not in main thread (e.g. tests)
+
         col_count = len(board.column_names())
         task_count = board.task_count()
         print(f"")
@@ -845,12 +936,14 @@ def run_server(port: int = 8080, data_dir: str = ".mdboard") -> None:
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nShutting down.")
+        finally:
+            cleanup_port_file(data_path)
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="mdboard server")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--dir", default=".mdboard")
     args = parser.parse_args()
     run_server(port=args.port, data_dir=args.dir)

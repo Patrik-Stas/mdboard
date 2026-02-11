@@ -9,14 +9,14 @@ def main(argv: list[str] | None = None) -> None:
         prog="mdboard",
         description="Markdown task board for your repo",
     )
-    parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
+    parser.add_argument("--port", type=int, default=0, help="Port (default: auto-assign from 10600-10700)")
     parser.add_argument("--dir", default=".mdboard", help="Data directory (default: .mdboard)")
     parser.add_argument("--tasks-dir", default=None, help=argparse.SUPPRESS)
 
     subparsers = parser.add_subparsers(dest="command")
 
     serve_parser = subparsers.add_parser("serve", help="Start the board server")
-    serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
+    serve_parser.add_argument("--port", type=int, default=0, help="Port (default: auto-assign from 10600-10700)")
     serve_parser.add_argument("--dir", default=".mdboard", help="Data directory (default: .mdboard)")
     serve_parser.add_argument("--tasks-dir", default=None, help=argparse.SUPPRESS)
 
