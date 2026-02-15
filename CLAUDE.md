@@ -1,6 +1,26 @@
+## Project Structure
+
+This is a monorepo with three packages:
+
+```
+server/     Python API server (PyPI: mdboard)
+web/        Web frontend SPA (single index.html)
+tui/        Rust TUI client
+```
+
+### Running the Server (dev)
+
+```bash
+cd server && uv run mdboard --dir ../.mdboard
+```
+
+### Building
+
+The server's wheel bundles `web/index.html` via hatchling `force-include`. For development, `server.py` falls back to `../../web/index.html` relative to its source location.
+
 ## Task Management
 
-This project uses a local markdown-based task board in `.mdboard/`. It consists of a zero-dependency Python HTTP server (`server.py`) serving a single-page kanban UI (`index.html`).
+This project uses a local markdown-based task board in `.mdboard/`. It consists of a zero-dependency Python HTTP server (`server/src/mdboard/server.py`) serving a single-page kanban UI (`web/index.html`).
 
 ### Running the Board
 
@@ -9,7 +29,7 @@ uvx mdboard [--port PORT] [--dir DIR]
 # → auto-assigns port from 10600-10700 range
 # → data dir defaults to ./.mdboard
 # → port written to .mdboard/port.json for discovery
-# dev: uv run mdboard
+# dev: cd server && uv run mdboard --dir ../.mdboard
 ```
 
 ### Directory Structure

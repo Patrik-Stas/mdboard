@@ -1225,9 +1225,65 @@ html, body {
     font-size: 11px;
   }
 }
+
+/* ── Toast notifications ── */
+.toast-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--text-accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: 12px var(--font-ui);
+  color: var(--text-primary);
+  max-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+  transform: translateX(40px) scale(0.95);
+}
+.toast.toast-out {
+  animation: toast-out 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+.toast-icon {
+  margin-right: 6px;
+}
+.toast-title {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+.toast-body {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+@keyframes toast-in {
+  0%   { opacity: 0; transform: translateX(40px) scale(0.95); }
+  60%  { opacity: 1; transform: translateX(-4px) scale(1.02); }
+  80%  { transform: translateX(2px) scale(0.99); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toast-out {
+  0%   { opacity: 1; transform: translateX(0) scale(1); }
+  100% { opacity: 0; transform: translateX(30px) scale(0.95); }
+}
 </style>
 </head>
 <body>
+<div class="toast-container" id="toast-container"></div>
 
 <div class="header">
   <div class="header-left">
@@ -2585,35 +2641,136 @@ api('/api/version').then(d => {
   }
 }).catch(() => {});
 
-// ── AUTO-REFRESH POLLING ──
+// ── TOAST NOTIFICATIONS ──
+function showToast(title, body, duration = 4000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<div class="toast-title">${title}</div><div class="toast-body">${body}</div>`;
+  container.prepend(toast);
+
+  // Cap visible toasts
+  while (container.children.length > 5) {
+    container.lastChild.remove();
+  }
+
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    toast.addEventListener('animationend', () => toast.remove());
+  }, duration);
+}
+
+// ── LIVE UPDATES VIA SSE ──
 let lastHashes = { board: null, prompts: null, documents: null };
-async function pollForChanges() {
-  try {
-    const hashes = await api('/api/poll');
-    if (lastHashes.board && hashes.board !== lastHashes.board) {
-      loadBoard();
+
+function buildTaskIndex(data) {
+  const idx = {};
+  if (!data || !data.columns) return idx;
+  for (const col of data.columns) {
+    for (const t of col.tasks) {
+      idx[t.filename] = { title: t.meta.title || t.filename, column: col.name, label: col.label || col.name };
     }
-    if (lastHashes.prompts && hashes.prompts !== lastHashes.prompts && currentView === 'prompts') {
-      loadResources('prompts');
+  }
+  return idx;
+}
+
+function buildResourceIndex(list) {
+  const idx = {};
+  for (const r of list) {
+    idx[r.dir_name] = { title: r.meta.title || r.dir_name };
+  }
+  return idx;
+}
+
+function diffBoard(oldData, newData) {
+  const oldIdx = buildTaskIndex(oldData);
+  const newIdx = buildTaskIndex(newData);
+  const toasts = [];
+  // New or moved tasks
+  for (const [fn, info] of Object.entries(newIdx)) {
+    const old = oldIdx[fn];
+    if (!old) {
+      toasts.push({ title: 'Task created', body: `${info.title} in ${info.label}` });
+    } else if (old.column !== info.column) {
+      toasts.push({ title: 'Task moved', body: `${info.title} → ${info.label}` });
     }
-    if (lastHashes.documents && hashes.documents !== lastHashes.documents && currentView === 'documents') {
-      loadResources('documents');
+  }
+  // Deleted tasks
+  for (const [fn, info] of Object.entries(oldIdx)) {
+    if (!newIdx[fn]) {
+      toasts.push({ title: 'Task removed', body: info.title });
     }
-    // Refresh activity if any hash changed
-    const anyChanged = lastHashes.board && (
-      hashes.board !== lastHashes.board ||
-      hashes.prompts !== lastHashes.prompts ||
-      hashes.documents !== lastHashes.documents
-    );
-    if (anyChanged && currentView === 'activity') {
+  }
+  // Content-only changes (same files, same columns, but hash changed)
+  if (toasts.length === 0) {
+    toasts.push({ title: 'Task updated', body: 'Content changed' });
+  }
+  return toasts;
+}
+
+function diffResources(oldList, newList, typeName) {
+  const oldIdx = buildResourceIndex(oldList);
+  const newIdx = buildResourceIndex(newList);
+  const toasts = [];
+  for (const [dn, info] of Object.entries(newIdx)) {
+    if (!oldIdx[dn]) {
+      toasts.push({ title: `${typeName} created`, body: info.title });
+    }
+  }
+  for (const [dn, info] of Object.entries(oldIdx)) {
+    if (!newIdx[dn]) {
+      toasts.push({ title: `${typeName} removed`, body: info.title });
+    }
+  }
+  if (toasts.length === 0 && oldList.length > 0) {
+    toasts.push({ title: `${typeName} updated`, body: 'Content changed' });
+  }
+  return toasts;
+}
+
+function connectSSE() {
+  const source = new EventSource('/api/events');
+
+  source.addEventListener('init', (e) => {
+    lastHashes = JSON.parse(e.data);
+  });
+
+  source.addEventListener('changed', (e) => {
+    const hashes = JSON.parse(e.data);
+    const boardChanged = lastHashes.board && hashes.board !== lastHashes.board;
+    const promptsChanged = lastHashes.prompts && hashes.prompts !== lastHashes.prompts;
+    const docsChanged = lastHashes.documents && hashes.documents !== lastHashes.documents;
+
+    if (boardChanged) {
+      const oldBoard = boardData;
+      loadBoard().then(() => {
+        if (oldBoard) diffBoard(oldBoard, boardData).forEach(t => showToast(t.title, t.body));
+      });
+    }
+    if (promptsChanged) {
+      const oldPrompts = resourceData.prompts;
+      api('/api/prompts').then(list => {
+        resourceData.prompts = list;
+        if (currentView === 'prompts') renderResourceList('prompts');
+        diffResources(oldPrompts, list, 'Prompt').forEach(t => showToast(t.title, t.body));
+      });
+    }
+    if (docsChanged) {
+      const oldDocs = resourceData.documents;
+      api('/api/documents').then(list => {
+        resourceData.documents = list;
+        if (currentView === 'documents') renderResourceList('documents');
+        diffResources(oldDocs, list, 'Document').forEach(t => showToast(t.title, t.body));
+      });
+    }
+    if ((boardChanged || promptsChanged || docsChanged) && currentView === 'activity') {
       loadActivity();
     }
     lastHashes = hashes;
-  } catch {}
+  });
 }
-// Initial hash fetch
-pollForChanges();
-setInterval(pollForChanges, 3000);
+
+connectSSE();
 </script>
 </body>
 </html>

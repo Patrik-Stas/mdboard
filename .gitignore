@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Rust
+tui/target/
+
 # IDE
 .idea/
 .vscode/
@@ -24,6 +27,4 @@ Thumbs.db
 .env.*
 
 # mdboard local data
-documents/
-tasks/
-prompts/
+.mdboard/

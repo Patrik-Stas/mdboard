@@ -16,6 +16,8 @@ import shutil
 import signal
 import socket
 import socketserver
+import threading
+import time
 from datetime import date, datetime
 from importlib.metadata import version as pkg_version
 from importlib.resources import files
@@ -659,6 +661,9 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
                 "documents": self.documents.get_state_hash(),
             })
 
+        if path == "/api/events" and method == "GET":
+            return self._handle_sse()
+
         if path == "/api/config" and method == "GET":
             return self._send_json(self.board.config)
 
@@ -858,6 +863,52 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
         entries.sort(key=lambda e: e["mtime"], reverse=True)
         return entries[:limit]
 
+    def _handle_sse(self):
+        """Server-Sent Events endpoint — pushes hash changes to clients."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+
+        last_hashes = {
+            "board": self.board.get_state_hash(),
+            "prompts": self.prompts.get_state_hash(),
+            "documents": self.documents.get_state_hash(),
+        }
+
+        # Send initial hashes so client knows current state
+        self._sse_write(f"event: init\ndata: {json.dumps(last_hashes)}\n\n")
+
+        heartbeat_interval = 15
+        check_interval = 1
+        last_heartbeat = time.monotonic()
+
+        try:
+            while True:
+                time.sleep(check_interval)
+
+                current = {
+                    "board": self.board.get_state_hash(),
+                    "prompts": self.prompts.get_state_hash(),
+                    "documents": self.documents.get_state_hash(),
+                }
+
+                if current != last_hashes:
+                    self._sse_write(f"event: changed\ndata: {json.dumps(current)}\n\n")
+                    last_hashes = current
+
+                now = time.monotonic()
+                if now - last_heartbeat >= heartbeat_interval:
+                    self._sse_write(": heartbeat\n\n")
+                    last_heartbeat = now
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            pass  # Client disconnected
+
+    def _sse_write(self, text: str):
+        self.wfile.write(text.encode())
+        self.wfile.flush()
+
     def do_GET(self):
         self._route("GET")
 
@@ -962,6 +1013,9 @@ def run_server(port: int = 0, data_dir: str = ".mdboard") -> None:
         port = find_available_port(data_path)
 
     html_path = files("mdboard").joinpath("_assets", "index.html")
+    # Dev fallback: when running from source, _assets/ doesn't exist — use web/
+    if not Path(str(html_path)).exists():
+        html_path = Path(__file__).resolve().parent.parent.parent.parent / "web" / "index.html"
 
     board = Board(str(tasks_path))
 
@@ -971,10 +1025,20 @@ def run_server(port: int = 0, data_dir: str = ".mdboard") -> None:
     BoardHandler.html_path = html_path
     BoardHandler.project_name = data_path.parent.name
 
-    # Allow port reuse
-    socketserver.TCPServer.allow_reuse_address = True
+    # Allow port reuse — use ThreadingTCPServer so SSE connections don't block
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.daemon_threads = True
 
-    with socketserver.TCPServer(("", port), BoardHandler) as httpd:
+    class QuietThreadingServer(socketserver.ThreadingTCPServer):
+        def handle_error(self, request, client_address):
+            # Suppress noisy connection-reset tracebacks (browser closed early)
+            import sys
+            exc = sys.exc_info()[1]
+            if isinstance(exc, (ConnectionResetError, BrokenPipeError, OSError)):
+                return
+            super().handle_error(request, client_address)
+
+    with QuietThreadingServer(("", port), BoardHandler) as httpd:
         # Write port file and register cleanup
         write_port_file(data_path, port)
         atexit.register(cleanup_port_file, data_path)
