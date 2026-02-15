@@ -65,7 +65,7 @@ Use this template:
 id: {next_id}
 title: {title}
 assignee: claude
-tags: [{relevant, tags}]
+scopes: [{relevant, scopes}]
 created: {today}
 due: {optional, YYYY-MM-DD}
 branch: {optional, only if scoped to a branch}

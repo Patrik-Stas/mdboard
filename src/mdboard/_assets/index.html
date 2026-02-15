@@ -161,9 +161,9 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 20px;
-  border-bottom: 1px solid transparent;
-  background: transparent;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
   flex-shrink: 0;
 }
 .filter-bar label {
@@ -202,6 +202,64 @@ html, body {
 .filter-clear:hover {
   border-color: var(--text-secondary);
   color: var(--text-secondary);
+}
+.scope-badge-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.scope-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 4px 12px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  border-radius: 100px;
+}
+.scope-badge:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+.scope-badge.active {
+  background: var(--accent-bg-strong);
+  border-color: var(--accent-border-strong);
+  color: var(--text-accent);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+.scope-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.scope-select-pill {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  border-radius: 100px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.scope-select-pill:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+.scope-select-pill.selected {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-accent);
 }
 
 /* ── BOARD ── */
@@ -289,7 +347,7 @@ html, body {
   align-items: center;
   gap: 6px;
 }
-.tag-pill {
+.scope-pill {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.02em;
@@ -597,7 +655,7 @@ html, body {
   color: var(--text-secondary);
   font-size: 12px;
 }
-.sidebar-value .tag-pill { margin-right: 4px; margin-bottom: 2px; display: inline-block; }
+.sidebar-value .scope-pill { margin-right: 4px; margin-bottom: 2px; display: inline-block; }
 
 /* ── Rendered markdown ── */
 .rendered h1 {
@@ -1189,16 +1247,15 @@ html, body {
 </div>
 
 <div id="board-view">
-  <div class="filter-bar">
-    <div class="filter-group">
-      <label>assignee</label>
-      <input type="text" id="filter-assignee" placeholder="filter..." style="width:100px;">
+  <div class="filter-bar" style="gap:12px;">
+    <div class="scope-badge-bar" id="scope-badge-bar"></div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+      <div class="filter-group">
+        <label>assignee</label>
+        <input type="text" id="filter-assignee" placeholder="filter..." style="width:100px;">
+      </div>
+      <button class="filter-clear" onclick="clearFilters()">clear</button>
     </div>
-    <div class="filter-group">
-      <label>tag</label>
-      <input type="text" id="filter-tag" placeholder="filter..." style="width:100px;">
-    </div>
-    <button class="filter-clear" onclick="clearFilters()">clear</button>
   </div>
   <div class="board-container" id="board"></div>
 </div>
@@ -1277,8 +1334,9 @@ html, body {
           <input type="text" id="create-assignee" placeholder="assignee">
         </div>
         <div class="create-field">
-          <label>Tags</label>
-          <input type="text" id="create-tags" placeholder="comma separated">
+          <label>Scopes</label>
+          <input type="text" id="create-scopes" placeholder="comma separated or click below">
+          <div class="scope-select-bar" id="create-scope-picker"></div>
         </div>
       </div>
       <div class="create-field" style="flex:1;display:flex;flex-direction:column;min-height:0;">
@@ -1312,8 +1370,9 @@ html, body {
         <input type="text" id="resource-create-name" placeholder="title">
       </div>
       <div class="create-field">
-        <label>Tags</label>
-        <input type="text" id="resource-create-tags" placeholder="comma separated">
+        <label>Scopes</label>
+        <input type="text" id="resource-create-scopes" placeholder="comma separated or click below">
+        <div class="scope-select-bar" id="resource-create-scope-picker"></div>
       </div>
       <div class="create-field" style="flex:1;display:flex;flex-direction:column;min-height:0;">
         <label>Content (markdown)</label>
@@ -1409,6 +1468,7 @@ async function api(path, opts = {}) {
 // ── LOAD BOARD ──
 async function loadBoard() {
   boardData = await api('/api/board');
+  await loadScopes();
   // Preload comment counts
   const allTasks = boardData.columns.flatMap(c => c.tasks);
   const counts = await Promise.all(
@@ -1427,10 +1487,12 @@ async function loadBoard() {
 }
 
 // ── FILTERS ──
+let activeScopes = new Set();
+let knownScopes = [];
+
 function getFilters() {
   return {
     assignee: document.getElementById('filter-assignee').value.toLowerCase().trim(),
-    tag: document.getElementById('filter-tag').value.toLowerCase().trim(),
   };
 }
 
@@ -1438,21 +1500,58 @@ function matchesFilter(task) {
   const f = getFilters();
   const m = task.meta;
   if (f.assignee && !(m.assignee || '').toLowerCase().includes(f.assignee)) return false;
-  if (f.tag) {
-    const tags = (m.tags || []).map(t => t.toLowerCase());
-    if (!tags.some(t => t.includes(f.tag))) return false;
+  if (activeScopes.size > 0) {
+    const scopes = (m.scopes || []).map(s => s.toLowerCase());
+    if (!scopes.some(s => activeScopes.has(s))) return false;
   }
   return true;
 }
 
 function clearFilters() {
   document.getElementById('filter-assignee').value = '';
-  document.getElementById('filter-tag').value = '';
+  activeScopes.clear();
   renderBoard();
 }
 
+function toggleScope(scope) {
+  const lower = scope.toLowerCase();
+  if (activeScopes.has(lower)) {
+    activeScopes.delete(lower);
+  } else {
+    activeScopes.add(lower);
+  }
+  renderBoard();
+}
+
+async function loadScopes() {
+  try {
+    knownScopes = await api('/api/scopes');
+  } catch { knownScopes = []; }
+}
+
+function renderScopeBadges() {
+  const bar = document.getElementById('scope-badge-bar');
+  if (!bar) return;
+  // Merge server-defined scopes with any in-use scopes from tasks
+  const allScopes = new Set(knownScopes.map(s => s));
+  if (boardData) {
+    boardData.columns.forEach(col => {
+      col.tasks.forEach(task => {
+        (task.meta.scopes || []).forEach(s => allScopes.add(s));
+      });
+    });
+  }
+  if (allScopes.size === 0) {
+    bar.innerHTML = '';
+    return;
+  }
+  bar.innerHTML = Array.from(allScopes).sort().map(s => {
+    const isActive = activeScopes.has(s.toLowerCase());
+    return `<button class="scope-badge${isActive ? ' active' : ''}" onclick="toggleScope('${escAttr(s)}')">${escHtml(s)}</button>`;
+  }).join('');
+}
+
 document.getElementById('filter-assignee').addEventListener('input', renderBoard);
-document.getElementById('filter-tag').addEventListener('input', renderBoard);
 
 // ── CHECKBOX PROGRESS ──
 function checkboxProgress(body) {
@@ -1474,6 +1573,7 @@ function isDueOverdue(due) {
 // ── RENDER BOARD ──
 function renderBoard() {
   if (!boardData) return;
+  renderScopeBadges();
   const board = document.getElementById('board');
   board.innerHTML = '';
 
@@ -1545,9 +1645,9 @@ function createCard(task, colColor) {
   let html = `<div class="card-title">${escHtml(m.title || task.filename)}</div>`;
   html += `<div class="card-meta">`;
 
-  const tags = m.tags || [];
-  tags.forEach(t => {
-    html += `<span class="tag-pill">${escHtml(t)}</span>`;
+  const scopes = m.scopes || [];
+  scopes.forEach(s => {
+    html += `<span class="scope-pill">${escHtml(s)}</span>`;
   });
 
   const prog = checkboxProgress(task.body || '');
@@ -1622,7 +1722,7 @@ async function renderModal() {
   let sideHtml = '';
   sideHtml += sidebarField('ID', m.id);
   sideHtml += sidebarField('Assignee', m.assignee || '<span style="color:var(--text-muted)">unassigned</span>');
-  sideHtml += sidebarField('Tags', (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
+  sideHtml += sidebarField('Scopes', (m.scopes || []).map(s => `<span class="scope-pill">${escHtml(s)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
   sideHtml += sidebarField('Created', m.created || '');
   if (m.due) sideHtml += sidebarField('Due', `<span style="${isDueOverdue(m.due) ? 'color:var(--danger)' : ''}">${m.due}</span>`);
   if (m.branch) sideHtml += sidebarField('Branch', `<span style="color:var(--text-accent)">${escHtml(m.branch)}</span>`);
@@ -1776,7 +1876,7 @@ async function deleteComment(taskId, filename) {
 function buildRawContent(task) {
   const m = task.meta;
   let lines = ['---'];
-  const keys = ['id', 'title', 'priority', 'assignee', 'tags', 'created', 'due', 'branch', 'completed'];
+  const keys = ['id', 'title', 'priority', 'assignee', 'scopes', 'created', 'due', 'branch', 'completed'];
   const seen = new Set();
   keys.forEach(k => {
     if (m[k] !== undefined && m[k] !== null) {
@@ -1802,6 +1902,40 @@ function yamlVal(v) {
 }
 
 // ── CREATE TASK MODAL ──
+function renderScopePicker(pickerId, inputId) {
+  const picker = document.getElementById(pickerId);
+  if (!picker) return;
+  const input = document.getElementById(inputId);
+  const current = input.value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const allScopes = new Set(knownScopes);
+  if (boardData) {
+    boardData.columns.forEach(col => {
+      col.tasks.forEach(task => {
+        (task.meta.scopes || []).forEach(s => allScopes.add(s));
+      });
+    });
+  }
+  if (allScopes.size === 0) { picker.innerHTML = ''; return; }
+  picker.innerHTML = Array.from(allScopes).sort().map(s => {
+    const sel = current.includes(s.toLowerCase());
+    return `<button type="button" class="scope-select-pill${sel ? ' selected' : ''}" onclick="toggleScopeInInput('${escAttr(s)}','${inputId}','${pickerId}')">${escHtml(s)}</button>`;
+  }).join('');
+}
+
+function toggleScopeInInput(scope, inputId, pickerId) {
+  const input = document.getElementById(inputId);
+  let scopes = input.value.split(',').map(s => s.trim()).filter(Boolean);
+  const lower = scope.toLowerCase();
+  const idx = scopes.findIndex(s => s.toLowerCase() === lower);
+  if (idx >= 0) {
+    scopes.splice(idx, 1);
+  } else {
+    scopes.push(scope);
+  }
+  input.value = scopes.join(', ');
+  renderScopePicker(pickerId, inputId);
+}
+
 function openCreateModal(colName) {
   const sel = document.getElementById('create-column');
   sel.innerHTML = '';
@@ -1816,8 +1950,9 @@ function openCreateModal(colName) {
   }
   document.getElementById('create-title').value = '';
   document.getElementById('create-assignee').value = '';
-  document.getElementById('create-tags').value = '';
+  document.getElementById('create-scopes').value = '';
   document.getElementById('create-desc').value = '';
+  renderScopePicker('create-scope-picker', 'create-scopes');
   document.getElementById('create-backdrop').classList.add('open');
   document.getElementById('create-title').focus();
 }
@@ -1831,13 +1966,13 @@ async function submitCreateModal() {
   if (!title) return;
   const column = document.getElementById('create-column').value;
   const assignee = document.getElementById('create-assignee').value.trim();
-  const tagsRaw = document.getElementById('create-tags').value.trim();
-  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const scopesRaw = document.getElementById('create-scopes').value.trim();
+  const scopes = scopesRaw ? scopesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
   const description = document.getElementById('create-desc').value;
 
   await api('/api/task', {
     method: 'POST',
-    body: JSON.stringify({ column, title, description, assignee, tags }),
+    body: JSON.stringify({ column, title, description, assignee, scopes }),
   });
   closeCreateModal();
   loadBoard();
@@ -2034,7 +2169,7 @@ function renderResourceList(type) {
 
   list.innerHTML = items.map(r => {
     const m = r.meta;
-    const tags = (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join('');
+    const scopes = (m.scopes || []).map(s => `<span class="scope-pill">${escHtml(s)}</span>`).join('');
     return `
       <div class="resource-card" onclick="openResource('${type}', '${escAttr(r.dir_name)}')">
         <div class="resource-card-left">
@@ -2042,7 +2177,7 @@ function renderResourceList(type) {
           <div class="resource-card-meta">
             <span class="resource-card-date">${escHtml(m.updated || m.created || '')}</span>
             <span class="resource-card-rev">rev ${m.revision || 1}</span>
-            ${tags}
+            ${scopes}
           </div>
         </div>
       </div>
@@ -2119,8 +2254,9 @@ function openCreateResource(type) {
   const label = type === 'prompts' ? 'Prompt' : 'Document';
   document.getElementById('resource-create-title').textContent = `New ${label}`;
   document.getElementById('resource-create-name').value = '';
-  document.getElementById('resource-create-tags').value = '';
+  document.getElementById('resource-create-scopes').value = '';
   document.getElementById('resource-create-body').value = '';
+  renderScopePicker('resource-create-scope-picker', 'resource-create-scopes');
   document.getElementById('resource-create-backdrop').classList.add('open');
   document.getElementById('resource-create-name').focus();
 }
@@ -2133,13 +2269,13 @@ function closeResourceCreate() {
 async function submitResourceCreate() {
   const title = document.getElementById('resource-create-name').value.trim();
   if (!title) return;
-  const tagsRaw = document.getElementById('resource-create-tags').value.trim();
-  const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const scopesRaw = document.getElementById('resource-create-scopes').value.trim();
+  const scopes = scopesRaw ? scopesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
   const body = document.getElementById('resource-create-body').value;
 
   await api(`/api/${createResourceType}`, {
     method: 'POST',
-    body: JSON.stringify({ title, tags, body }),
+    body: JSON.stringify({ title, scopes, body }),
   });
   closeResourceCreate();
   loadResources(createResourceType);
@@ -2189,7 +2325,7 @@ async function renderResourceModal() {
   sideHtml += sidebarField('Created', m.created || '');
   sideHtml += sidebarField('Updated', m.updated || m.created || '');
   sideHtml += sidebarField('Revision', m.revision || 1);
-  sideHtml += sidebarField('Tags', (m.tags || []).map(t => `<span class="tag-pill">${escHtml(t)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
+  sideHtml += sidebarField('Scopes', (m.scopes || []).map(s => `<span class="scope-pill">${escHtml(s)}</span>`).join(' ') || '<span style="color:var(--text-muted)">none</span>');
   sideHtml += sidebarField('Directory', `<span style="color:var(--text-muted);font-size:11px;">${escHtml(currentResource.dir_name)}</span>`);
   if (m.related && m.related.length) {
     sideHtml += sidebarField('Related', renderRelatedLinks(m.related));

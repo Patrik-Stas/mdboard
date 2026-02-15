@@ -146,7 +146,7 @@ def build_frontmatter(meta: dict) -> str:
     """Serialize a dict back to YAML frontmatter block."""
     lines = ["---"]
     # Preserve a sensible key order
-    key_order = ["id", "title", "assignee", "tags", "created", "updated", "revision", "due", "branch", "completed", "related"]
+    key_order = ["id", "title", "assignee", "scopes", "created", "updated", "revision", "due", "branch", "completed", "related"]
     seen = set()
     for k in key_order:
         if k in meta:
@@ -190,6 +190,7 @@ class Board:
                 {"name": "done", "label": "Done", "color": "#10b981"},
             ],
             "settings": {"auto_increment_id": True, "default_column": "backlog"},
+            "scopes": ["global"],
         }
 
     def _ensure_columns(self):
@@ -208,6 +209,51 @@ class Board:
     def settings(self) -> dict:
         s = self.config.get("settings", {})
         return s if isinstance(s, dict) else {}
+
+    def get_scopes(self) -> list[str]:
+        """Return the defined scope list from config."""
+        s = self.config.get("scopes", [])
+        return s if isinstance(s, list) else []
+
+    def add_scopes(self, scopes: list[str]) -> list[str]:
+        """Add new scopes to config (deduplicating). Returns updated list."""
+        existing = set(s.lower() for s in self.get_scopes())
+        current = list(self.get_scopes())
+        added = False
+        for s in scopes:
+            if s.lower() not in existing:
+                current.append(s)
+                existing.add(s.lower())
+                added = True
+        if added:
+            self.config["scopes"] = current
+            self._save_config()
+        return current
+
+    def _save_config(self):
+        """Write config back to config.yaml."""
+        cfg_path = self.root / "config.yaml"
+        lines = []
+        # Columns
+        lines.append("columns:")
+        for col in self.columns():
+            lines.append(f"  - name: {col['name']}")
+            lines.append(f"    label: \"{col.get('label', col['name'])}\"")
+            lines.append(f"    color: \"{col.get('color', '#6b7280')}\"")
+        lines.append("")
+        # Settings
+        settings = self.settings()
+        if settings:
+            lines.append("settings:")
+            for k, v in settings.items():
+                lines.append(f"  {k}: {dump_yaml_value(v)}")
+            lines.append("")
+        # Scopes
+        scopes = self.get_scopes()
+        if scopes:
+            lines.append(f"scopes: [{', '.join(scopes)}]")
+            lines.append("")
+        cfg_path.write_text("\n".join(lines))
 
     def _next_id(self) -> int:
         max_id = 0
@@ -263,7 +309,7 @@ class Board:
             "id": task_id,
             "title": title,
             "assignee": data.get("assignee", ""),
-            "tags": data.get("tags", []),
+            "scopes": data.get("scopes", []),
             "created": str(date.today()),
         }
         if data.get("due"):
@@ -276,6 +322,8 @@ class Board:
 
         content = build_frontmatter(meta) + "\n" + body
         (self.root / col / filename).write_text(content)
+        if meta.get("scopes"):
+            self.add_scopes(meta["scopes"])
         return {"filename": filename, "column": col, "meta": meta, "body": body}
 
     def update_task(self, column: str, filename: str, data: dict) -> dict | None:
@@ -286,16 +334,20 @@ class Board:
         if "content" in data:
             path.write_text(data["content"])
             fm, body = parse_frontmatter(data["content"])
+            if fm.get("scopes"):
+                self.add_scopes(fm["scopes"])
             return {"filename": filename, "column": column, "meta": fm, "body": body}
         # Otherwise update meta fields
         fm, body = parse_frontmatter(path.read_text())
-        for key in ("title", "assignee", "tags", "due", "branch", "completed"):
+        for key in ("title", "assignee", "scopes", "due", "branch", "completed"):
             if key in data:
                 fm[key] = data[key]
         if "body" in data:
             body = data["body"]
         content = build_frontmatter(fm) + "\n" + body
         path.write_text(content)
+        if fm.get("scopes"):
+            self.add_scopes(fm["scopes"])
         return {"filename": filename, "column": column, "meta": fm, "body": body}
 
     def move_task(self, filename: str, from_col: str, to_col: str) -> bool:
@@ -388,7 +440,7 @@ class ResourceStore:
                     002.md           # after first edit
     """
 
-    FRONTMATTER_KEYS = ["id", "title", "created", "updated", "revision", "tags"]
+    FRONTMATTER_KEYS = ["id", "title", "created", "updated", "revision", "scopes"]
 
     def __init__(self, project_root: Path, resource_type: str):
         self.root = project_root / resource_type
@@ -453,7 +505,7 @@ class ResourceStore:
             "created": today,
             "updated": today,
             "revision": 1,
-            "tags": data.get("tags", []),
+            "scopes": data.get("scopes", []),
         }
         body = data.get("body", "")
 
@@ -491,8 +543,8 @@ class ResourceStore:
         fm["updated"] = today
         if "title" in data:
             fm["title"] = data["title"]
-        if "tags" in data:
-            fm["tags"] = data["tags"]
+        if "scopes" in data:
+            fm["scopes"] = data["scopes"]
 
         new_body = data.get("body", old_body)
         content = build_frontmatter(fm) + "\n" + new_body + "\n"
@@ -610,6 +662,17 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/config" and method == "GET":
             return self._send_json(self.board.config)
 
+        if path == "/api/scopes" and method == "GET":
+            return self._send_json(self.board.get_scopes())
+
+        if path == "/api/scopes" and method == "POST":
+            data = self._read_body()
+            scopes = data.get("scopes", [])
+            if scopes:
+                result = self.board.add_scopes(scopes)
+                return self._send_json(result)
+            return self._send_error(400, "No scopes provided")
+
         if path == "/api/version" and method == "GET":
             try:
                 v = pkg_version("mdboard")
@@ -691,6 +754,8 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
         if path == prefix and method == "POST":
             data = self._read_body()
             result = store.create_resource(data)
+            if result["meta"].get("scopes"):
+                self.board.add_scopes(result["meta"]["scopes"])
             self._send_json(result, 201)
             return True
 
@@ -731,6 +796,8 @@ class BoardHandler(http.server.BaseHTTPRequestHandler):
                 data = self._read_body()
                 result = store.update_resource(dir_name, data)
                 if result:
+                    if result["meta"].get("scopes"):
+                        self.board.add_scopes(result["meta"]["scopes"])
                     self._send_json(result)
                     return True
                 self._send_error(404, f"{store.resource_type[:-1].title()} not found")

@@ -26,6 +26,8 @@ columns:
 settings:
   auto_increment_id: true
   default_column: backlog
+
+scopes: [global]
 """
 
 COLUMNS = ["backlog", "todo", "in-progress", "review", "done"]
@@ -94,7 +96,7 @@ Task file format:
 id: {number}
 title: {title}
 assignee: claude
-tags: [{tags}]
+scopes: [{scopes}]
 created: YYYY-MM-DD
 due: YYYY-MM-DD          # optional
 branch: {branch-name}    # optional, only pick up when on this branch
@@ -140,7 +142,7 @@ title: {title}
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 revision: {number}
-tags: [{tags}]
+scopes: [{scopes}]
 ---
 
 {markdown content}
@@ -151,6 +153,17 @@ tags: [{tags}]
 2. Create the directory: `.mdboard/prompts/{id:03d}-{slug}/` or `.mdboard/documents/{id:03d}-{slug}/`
 3. Write `current.md` with frontmatter (revision: 1) and body content
 4. Create `revisions/001.md` as the initial snapshot (same content as current.md)
+
+#### Scopes
+
+Scopes are a bounded set of work area labels used to categorize tasks, prompts, and documents. They replace the old "tags" concept with a more intentional grouping.
+
+Guidelines:
+- Prefer existing scopes over creating new ones
+- Keep the scope set small and intentional (e.g., api, ui, shared, testing, infra)
+- Examples: microservice names, feature areas, or cross-cutting concerns
+- Tasks can have multiple scopes but avoid overspecifying
+- Scopes are filterable via clickable badges in the board UI
 
 #### When to use prompts vs documents
 - **Prompts**: templates you'll reuse — code review checklists, PR templates, analysis frameworks
